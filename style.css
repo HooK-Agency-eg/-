@@ -313,3 +313,11 @@ body.textedit img[data-o]{outline:2px dashed var(--o);outline-offset:3px;cursor:
 .msep{padding:10px 18px 4px;font-size:.78rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;opacity:.65;border-top:1px solid var(--cline);margin-top:6px}
 @media(max-width:760px){.wmwrap{grid-template-columns:1fr}}
 .wmprev{margin:0!important}
+
+/* every photo frame is a square; the empty space is a soft blurred cream (the logo's light colour), the same in light and dark mode */
+.card.work a,.slide .im,.pimg{position:relative;aspect-ratio:1/1;height:auto!important;overflow:hidden;isolation:isolate;background:#fdfbee}
+.card.work a::before,.slide .im::before,.pimg::before{content:"";position:absolute;inset:-10%;background:radial-gradient(circle at 50% 45%,#fffef9 0%,#fdfbee 55%,#f3efd7 100%);filter:blur(18px);z-index:-1}
+.card.work a img,.slide .im img,.pimg img{position:relative;width:100%;height:100%;object-fit:contain;display:block;background:none}
+.slide{flex:0 0 min(400px,82%)}
+.pimg{margin-bottom:18px}
+.wmprev{height:auto!important;aspect-ratio:1/1;max-width:420px}
