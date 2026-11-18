@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Activity log | Hook</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css"></head><body>
+<main>
+<section class="phero"><div class="wrap"><span class="script" data-ar="الإدارة">Admin</span><h1 data-ar="سجل النشاط">Activity log</h1></div></section>
+<section style="padding-top:20px"><div class="wrap" id="dash"><p>…</p></div></section>
+</main><script src="config.js"></script><script src="seed.js"></script><script src="app.js"></script><script src="admin-ui.js"></script>
+<script>
+
+let LOG=null,LQ='',LU='';
+function logTable(){
+  const q=LQ.trim().toLowerCase(),list=LOG.filter(x=>(!LU||x.user===LU)&&(!q||(x.action+' '+x.target+' '+x.detail+' '+x.user).toLowerCase().includes(q)));
+  $('ltab').innerHTML=list.length?tbl([t('When','الوقت'),t('Who','مين'),t('Action','العملية'),t('Details','التفاصيل')],list.map(x=>'<tr><td class="nw">'+esc(ago(x.at))+'</td><td>'+esc(x.user)+'</td><td dir="ltr"><b>'+esc(x.action)+'</b></td><td>'+esc(x.detail||'')+'<br><small dir="ltr" style="opacity:.6">'+esc(x.target)+'</small></td></tr>')):empty('Nothing logged yet.','لسه مفيش حاجة في السجل.');
+}
+adminPage('log.view',async body=>{
+  body.innerHTML='<p>…</p>';const r=await api('/api/admin/log','POST',{});if(!r.ok){body.innerHTML='<p class="msg err">'+errT(r.j.error||'Error')+'</p>';return}
+  LOG=r.j.items;const users=[...new Set(LOG.map(x=>x.user))];
+  body.innerHTML='<div class="card"><div class="oh" style="margin-bottom:12px"><h3 style="margin:0">'+t('Activity log (last 500 actions)','سجل النشاط (آخر 500 عملية)')+'</h3><select id="lu" style="width:auto;margin-inline-start:auto"><option value="">'+t('Everyone','الكل')+'</option>'+users.map(u=>'<option'+(u===LU?' selected':'')+'>'+esc(u)+'</option>').join('')+'</select><input id="lq" placeholder="'+t('Search...','دوّر...')+'" value="'+esc(LQ)+'" style="width:220px"><button class="btn ghost sm" id="lxl">Excel</button></div><div id="ltab"></div></div>';
+  logTable();$('lu').onchange=e=>{LU=e.target.value;logTable()};$('lq').oninput=e=>{LQ=e.target.value;logTable()};
+  $('lxl').onclick=()=>saveXlsx('activity-log.xlsx',[[t('Log','السجل'),[[t('When','الوقت'),t('Who','مين'),t('Action','العملية'),t('Details','التفاصيل'),t('Target','الهدف')]].concat(LOG.map(x=>[x.at,x.user,x.action,x.detail,x.target])),[22,16,22,40,30]]]);
+},false);
+
+</script></body></html>

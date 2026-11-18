@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Shipping | Hook</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css"></head><body>
+<main>
+<section class="phero"><div class="wrap"><span class="script" data-ar="الإدارة">Admin</span><h1 data-ar="الشحن">Shipping</h1></div></section>
+<section style="padding-top:20px"><div class="wrap" id="dash"><p>…</p></div></section>
+</main><script src="config.js"></script><script src="seed.js"></script><script src="app.js"></script><script src="admin-ui.js"></script>
+<script>
+
+adminPage('shipping.manage',body=>{
+  const sh=DB.shipping||{enabled:true,regions:[]};
+  body.innerHTML='<div class="card"><div class="oh"><h3 style="margin:0">'+t('Governorates and shipping fees','المحافظات وتكلفة الشحن')+'</h3><div class="btns" style="margin-inline-start:auto"><button class="btn" id="shipbtn">'+t('Edit governorates and fees','تعديل المحافظات والتكلفة')+'</button></div></div>'
+   +'<p style="margin:10px 0">'+t('Shipping is','الشحن')+' <span class="badge '+(sh.enabled?'cs-active':'cs-disabled')+'">'+(sh.enabled?t('ON','شغّال'):t('OFF','مقفول'))+'</span> · '+sh.regions.length+' '+t('governorates','محافظة')+'. '+t('Customers choose their governorate in the cart and the fee is added to the total.','العميل بيختار محافظته في السلة والتكلفة بتتضاف على الإجمالي.')+'</p>'
+   +tbl([t('Governorate','المحافظة'),t('Fee','التكلفة')],sh.regions.map(g=>'<tr><td>'+esc(L(g.name))+'</td><td><b>'+fm(g.fee)+' '+cur()+'</b></td></tr>'))+'</div>';
+  $('shipbtn').onclick=()=>shipEditor();
+},false);
+
+</script></body></html>

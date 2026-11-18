@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Problem reports | Hook</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css"></head><body>
+<main>
+<section class="phero"><div class="wrap"><span class="script" data-ar="الإدارة">Admin</span><h1 data-ar="بلاغات المشاكل">Problem reports</h1></div></section>
+<section style="padding-top:20px"><div class="wrap" id="dash"><p>…</p></div></section>
+</main><script src="config.js"></script><script src="seed.js"></script><script src="app.js"></script><script src="admin-ui.js"></script>
+<script>
+
+const RST={open:['Open','مفتوح'],answered:['Answered','اتردّ عليه'],closed:['Closed','اتقفل']};
+adminPage('reports.reply',body=>{
+  const reps=[...ST.reports].sort((a,b)=>(a.status==='closed')-(b.status==='closed')||(b.at>a.at?1:-1));
+  body.innerHTML='<div class="card"><h3>'+t('Problem reports','بلاغات المشاكل')+' ('+reps.length+')</h3>'+(reps.length?reps.map(r=>'<div class="thread"><b>'+esc(r.subject)+'</b> <span class="badge">'+t(...(RST[r.status]||[r.status,r.status]))+'</span> <small style="opacity:.6">'+esc(r.username)+' · '+esc(ago(r.at))+'</small><div class="bub">'+esc(r.message)+'</div>'
+     +r.replies.map(y=>'<div class="bub sup"><small>'+t('Hook Support','دعم هوك')+' · '+esc(ago(y.at))+'</small><br>'+esc(y.text)+'</div>').join('')
+     +(r.status!=='closed'?'<textarea id="rt-'+esc(r.id)+'" rows="2" placeholder="'+t('Reply as Hook Support...','رد باسم دعم هوك...')+'" style="margin-top:10px"></textarea><div class="btns" style="margin-top:8px"><button class="btn" data-reply="'+esc(r.id)+'">'+t('Send reply','ابعت الرد')+'</button><button class="btn ghost" data-st="'+esc(r.id)+'|closed">'+t('Close','اقفل البلاغ')+'</button></div>':'<div class="btns" style="margin-top:8px"><button class="btn ghost" data-st="'+esc(r.id)+'|open">'+t('Reopen','افتح تاني')+'</button></div>')
+     +'<p class="msg" id="rm-'+esc(r.id)+'"></p></div>').join(''):empty('No reports.','مفيش بلاغات.'))+'</div>';
+});
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('button');if(!b)return;const rp=b.dataset.reply,st=b.dataset.st;
+  if(rp){const txt=$('rt-'+rp).value.trim(),m=$('rm-'+rp);if(!txt){m.className='msg err';m.textContent=errT('Write a reply first');return}
+    b.disabled=true;m.className='msg';m.textContent=t('Sending...','بيبعت...');const r=await api('/api/admin/reports/'+rp+'/reply','POST',{text:txt});
+    if(r.ok)afterSave();else{b.disabled=false;m.className='msg err';m.textContent=errT(r.j.error||'Error')}}
+  if(st){const[id,status]=st.split('|');await api('/api/admin/reports/'+id,'PATCH',{status});afterSave()}
+});
+
+</script></body></html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Coupons | Hook</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css"></head><body>
+<main>
+<section class="phero"><div class="wrap"><span class="script" data-ar="الإدارة">Admin</span><h1 data-ar="الكوبونات">Coupons</h1></div></section>
+<section style="padding-top:20px"><div class="wrap" id="dash"><p>…</p></div></section>
+</main><script src="config.js"></script><script src="seed.js"></script><script src="app.js"></script><script src="admin-ui.js"></script>
+<script>
+
+let FROM='',TO='';
+const inR=a=>{const d=day(a);return(!FROM||d>=FROM)&&(!TO||d<=TO)};
+const periodTxt=()=>FROM||TO?(FROM||'…')+' → '+(TO||'…'):t('All time','كل الوقت');
+const cdisc=c=>c.type==='percent'?fm(c.value)+'%':fm(c.value)+' '+cur();
+function cpCalc(){
+  const live=ST.ot.filter(r=>r[3]!=='cancelled'&&inR(r[0])),allSales=live.reduce((a,r)=>a+r[1],0),by={};
+  ST.corders.filter(o=>o.status!=='cancelled'&&inR(o.at)).forEach(o=>{const x=by[o.code]||(by[o.code]={uses:0,sales:0,net:0,given:0});x.uses++;x.sales+=o.total;x.net+=o.net;x.given+=o.discount});
+  return{allSales,by,rows:ST.coupons.map(c=>{const x=by[c.code]||{uses:0,sales:0,net:0,given:0};return Object.assign({},c,x,{share:allSales?x.sales/allSales*100:0,comm:Math.round(x.net*(+c.commission||0))/100})}).sort((a,b)=>b.uses-a.uses||b.sales-a.sales)};
+}
+const r2=n=>Math.round(n*100)/100;
+function hdrs(){return[t('Invoice','الفاتورة'),t('Date','التاريخ'),t('Customer','العميل'),t('Status','الحالة'),t('Subtotal','المجموع'),t('Discount','الخصم'),t('Shipping','الشحن'),t('Total','الإجمالي'),t('Net sales (after discount, no shipping)','صافي المبيعات (بعد الخصم من غير شحن)'),t('Partner commission','عمولة الشريك')]}
+function orderRow(o,c){const live=o.status!=='cancelled';return[o.inv||o.id,day(o.at),o.name||'',t(...(ORD[o.status]||[o.status,o.status])),o.subtotal,o.discount,o.ship,o.total,o.net,live?r2(o.net*(+c.commission||0)/100):0]}
+function summaryRows(r,orders){
+  const canc=ST.corders.filter(o=>o.code===r.code&&o.status==='cancelled'&&inR(o.at)).length;
+  return[[t('Coupon','الكوبون'),r.code],[t('Partner','الشريك'),r.partner||'-'],[t('Commission %','نسبة العمولة %'),+r.commission||0],[t('Period','الفترة'),periodTxt()],[t('Orders using it (not cancelled)','عدد الطلبات (من غير الملغي)'),r.uses],[t('Cancelled orders (not counted)','طلبات ملغية (مش محسوبة)'),canc],
+   [t('Total sales','إجمالي المبيعات'),r2(r.sales)],[t('Net sales (after discount, no shipping)','صافي المبيعات (بعد الخصم من غير شحن)'),r2(r.net)],[t('Discount given to customers','الخصم اللي اتدّى للعملاء'),r2(r.given)],[t('Share of all sales in this period %','نسبة مبيعات الكوبون من كل المبيعات في الفترة %'),r2(r.share)],[t('Partner commission amount','مبلغ عمولة الشريك'),r2(r.comm)]];
+}
+async function exportOne(code){
+  const k=cpCalc(),r=k.rows.find(x=>x.code===code),orders=ST.corders.filter(o=>o.code===code&&inR(o.at));
+  await saveXlsx('coupon-'+code+'-'+(FROM||'all')+'_'+(TO||'all')+'.xlsx',[[t('Summary','الملخص'),summaryRows(r),[46,26]],[t('Orders','الطلبات'),[hdrs()].concat(orders.map(o=>orderRow(o,r))),[14,12,22,12,12,12,12,12,22,18]]]);
+}
+async function exportAll(){
+  const k=cpCalc(),head=[t('Coupon','الكوبون'),t('Partner','الشريك'),t('Commission %','العمولة %'),t('Orders','الطلبات'),t('Total sales','إجمالي المبيعات'),t('Net sales','صافي المبيعات'),t('Discount given','الخصم المُعطى'),t('Share of all sales %','نسبة من كل المبيعات %'),t('Partner commission','عمولة الشريك')];
+  const rows=k.rows.map(r=>[r.code,r.partner||'',+r.commission||0,r.uses,r2(r.sales),r2(r.net),r2(r.given),r2(r.share),r2(r.comm)]);
+  const tot=['',t('Total','الإجمالي'),'',k.rows.reduce((a,r)=>a+r.uses,0),r2(k.rows.reduce((a,r)=>a+r.sales,0)),r2(k.rows.reduce((a,r)=>a+r.net,0)),r2(k.rows.reduce((a,r)=>a+r.given,0)),'',r2(k.rows.reduce((a,r)=>a+r.comm,0))];
+  const cm=Object.fromEntries(ST.coupons.map(c=>[c.code,c])),all=ST.corders.filter(o=>inR(o.at));
+  await saveXlsx('coupons-'+(FROM||'all')+'_'+(TO||'all')+'.xlsx',[[t('Coupons','الكوبونات'),[[t('Period','الفترة'),periodTxt()],[],head].concat(rows,[tot]),[18,24,14,10,16,16,16,18,18]],[t('Orders','الطلبات'),[[t('Coupon','الكوبون')].concat(hdrs())].concat(all.map(o=>[o.code].concat(orderRow(o,cm[o.code]||{commission:0})))),[16,14,12,22,12,12,12,12,12,22,18]]]);
+}
+function tableHtml(){
+  const k=cpCalc(),top=k.rows.find(r=>r.uses>0);
+  return(top?'<p class="topc">'+t('Most used coupon in this period','أكتر كوبون استخداماً في الفترة')+': <b dir="ltr">'+esc(top.code)+'</b> · '+top.uses+' '+t('uses','استخدام')+' · '+t('sales','مبيعات')+' <b>'+fm(r2(top.sales))+' '+cur()+'</b> ('+r2(top.share)+'%)</p>':'')
+   +(k.rows.length?tbl([t('Code','الكود'),t('Discount','الخصم'),t('Status','الحالة'),t('Uses','الاستخدام'),t('Sales','المبيعات'),t('% of all sales','% من كل المبيعات'),t('Discount given','خصم اتدّى'),t('Partner','الشريك'),t('Commission','العمولة'),''],k.rows.map(r=>'<tr><td dir="ltr"><b>'+esc(r.code)+'</b>'+(r.note?'<br><small>'+esc(r.note)+'</small>':'')+(r.minOrder?'<br><small>'+t('min order ','أقل طلب ')+fm(r.minOrder)+'</small>':'')+'</td><td>'+cdisc(r)+'</td><td><span class="badge cs-'+r.state.replace(' ','')+'">'+t(...(CST[r.state]||[r.state,r.state]))+'</span><br><small>'+(r.starts?esc(ago(r.starts)):t('now','من دلوقتي'))+' → '+(r.ends?esc(ago(r.ends)):t('no end','من غير نهاية'))+'</small></td><td>'+r.uses+(r.maxUses?' / '+r.maxUses:' / ∞')+'</td><td><b>'+fm(r2(r.sales))+' '+cur()+'</b></td><td>'+r2(r.share)+'%</td><td>'+fm(r2(r.given))+' '+cur()+'</td><td>'+(r.partner?esc(r.partner)+'<br><small>'+(+r.commission||0)+'%</small>':'-')+'</td><td>'+(r.partner||+r.commission?'<b>'+fm(r.comm)+' '+cur()+'</b>':'-')+'</td><td class="nw"><button class="btn ghost sm" data-xl="'+esc(r.code)+'">Excel</button> <button class="btn ghost sm" data-cp-toggle="'+esc(r.id)+'|'+(r.active?0:1)+'">'+(r.active?t('Disable','وقّف'):t('Enable','فعّل'))+'</button> <button class="btn ghost sm" data-cp-edit="'+esc(r.id)+'">'+t('Edit','تعديل')+'</button></td></tr>')):empty('No coupons yet. Create the first one.','لسه مفيش كوبونات. اعمل أول كوبون.'));
+}
+adminPage('coupons.manage',body=>{
+  const iso=d=>d.toISOString().slice(0,10),today=new Date();
+  body.innerHTML='<div class="card"><div class="oh"><h3 style="margin:0">'+t('Discount coupons','كوبونات الخصم')+'</h3><div class="btns" style="margin-inline-start:auto"><button class="btn" id="cp-new">'+t('+ New coupon','+ كوبون جديد')+'</button><button class="btn ghost" id="xl-all">'+t('Export all (Excel)','تصدير الكل (Excel)')+'</button></div></div>'
+   +'<div class="period"><label><span>'+t('From','من')+'</span><input type="date" id="pf" value="'+FROM+'"></label><label><span>'+t('To','إلى')+'</span><input type="date" id="pt" value="'+TO+'"></label><div class="btns"><button class="btn ghost sm" data-pr="all">'+t('All time','كل الوقت')+'</button><button class="btn ghost sm" data-pr="7">'+t('Last 7 days','آخر 7 أيام')+'</button><button class="btn ghost sm" data-pr="30">'+t('Last 30 days','آخر 30 يوم')+'</button><button class="btn ghost sm" data-pr="m">'+t('This month','الشهر ده')+'</button></div></div>'
+   +'<p style="opacity:.8;font-size:.9rem;margin:6px 0 12px">'+t('Uses, sales and the share of sales follow the period you choose. Sales are order totals, cancelled orders are not counted. The partner commission is the commission % of the net sales (after the coupon discount, without shipping). The Excel button downloads the same numbers with every order.','الاستخدام والمبيعات والنسبة بتتحسب حسب الفترة اللي تختارها. المبيعات هي إجمالي الطلبات والملغي مش محسوب. عمولة الشريك هي نسبة العمولة من صافي المبيعات (بعد خصم الكوبون ومن غير الشحن). زرار Excel بينزّل نفس الأرقام ومعاها كل الطلبات.')+'</p><div id="ctab">'+tableHtml()+'</div></div>';
+  const redo=()=>{$('ctab').innerHTML=tableHtml()};
+  $('pf').onchange=e=>{FROM=e.target.value;redo()};$('pt').onchange=e=>{TO=e.target.value;redo()};
+  body.querySelectorAll('[data-pr]').forEach(b=>b.onclick=()=>{const p=b.dataset.pr;if(p==='all'){FROM=TO=''}else if(p==='m'){FROM=iso(new Date(today.getFullYear(),today.getMonth(),1));TO=iso(today)}else{FROM=iso(new Date(Date.now()-(+p-1)*864e5));TO=iso(today)}$('pf').value=FROM;$('pt').value=TO;redo()});
+  $('cp-new').onclick=()=>couponEditor();$('xl-all').onclick=()=>exportAll();
+});
+document.addEventListener('click',async e=>{const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.xl){b.disabled=true;try{await exportOne(b.dataset.xl)}catch(x){alert(x.message)}b.disabled=false}
+  if(b.dataset.cpEdit)couponEditor(ST.coupons.find(k=>k.id===b.dataset.cpEdit));
+  if(b.dataset.cpToggle){const[id,on]=b.dataset.cpToggle.split('|');await api('/api/admin/coupons/'+id,'PATCH',{active:on==='1'});afterSave()}
+});
+
+</script></body></html>

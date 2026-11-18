@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Store: stock and watermark | Hook</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css"></head><body>
+<main>
+<section class="phero"><div class="wrap"><span class="script" data-ar="الإدارة">Admin</span><h1 data-ar="المتجر: المخزون والواترمارك">Store: stock and watermark</h1></div></section>
+<section style="padding-top:20px"><div class="wrap" id="dash"><p>…</p></div></section>
+</main><script src="config.js"></script><script src="seed.js"></script><script src="app.js"></script><script src="admin-ui.js"></script>
+<script>
+
+function wmForm(w){
+  const o=(v,en,a,cur)=>'<option value="'+v+'"'+(v===cur?' selected':'')+'>'+t(en,a)+'</option>';
+  return '<form id="wmf" class="wmf"><label class="chk"><input type="checkbox" name="enabled"'+(w.enabled?' checked':'')+'><span>'+t('Show a watermark on shop product images','حط واترمارك على صور منتجات المتجر')+'</span></label>'
+   +'<label><span>'+t('How','الطريقة')+'</span><select name="mode">'+o('overlay','On top of the image when it is shown (changes apply to all images at once)','فوق الصورة وقت العرض (أي تعديل بيتطبّق على كل الصور فوراً)',w.mode)+o('burn','Burned into the image when you upload it (a saved copy keeps it; old images stay as they are)','محفورة جوه الصورة وقت الرفع (النسخة المحفوظة بتفضل عليها العلامة، والصور القديمة زي ما هي)',w.mode)+'</select></label>'
+   +'<label><span>'+t('Type','النوع')+'</span><select name="type">'+o('text','Text','كلمة',w.type)+o('logo','Hook logo','لوجو هوك',w.type)+'</select></label>'
+   +'<label><span>'+t('Text','الكلمة')+'</span><input name="text" maxlength="30" value="'+esc(w.text)+'"></label>'
+   +'<label><span>'+t('Position','المكان')+'</span><select name="position">'+o('tile','Repeated over the whole image','متكررة على الصورة كلها',w.position)+o('center','Center','في النص',w.position)+o('corner','Bottom corner','في الركن اللي تحت',w.position)+'</select></label>'
+   +'<label><span>'+t('Opacity','الشفافية')+' <b id="vo">'+w.opacity+'</b>%</span><input type="range" name="opacity" min="5" max="100" value="'+w.opacity+'"></label>'
+   +'<label><span>'+t('Size','الحجم')+' <b id="vs">'+w.size+'</b></span><input type="range" name="size" min="5" max="60" value="'+w.size+'"></label>'
+   +'<p class="msg" id="wmm"></p><button class="btn" type="submit">'+t('Save watermark settings','احفظ إعدادات الواترمارك')+'</button></form>';
+}
+function wmRead(f){const d=new FormData(f);return{enabled:f.enabled.checked,mode:d.get('mode'),type:d.get('type'),text:d.get('text'),position:d.get('position'),opacity:+d.get('opacity'),size:+d.get('size')}}
+function wmPreview(){const f=$('wmf');if(!f)return;const w=wmRead(f);w.enabled=true;w.mode='overlay';$('wmp').innerHTML='<img src="img/jmg-design.jpg" alt="">'+wmHTML(w);$('vo').textContent=w.opacity;$('vs').textContent=w.size}
+adminPage('products.edit',body=>{
+  const inv=[...ST.inventory].sort((a,b)=>((a.stock==null)-(b.stock==null))||((a.stock||0)-(b.stock||0))),w=DB.watermark||{};
+  body.innerHTML='<div class="card" id="invt"><h3>'+t('Inventory','المخزون')+'</h3>'+(inv.length?tbl([t('Code','الكود'),t('Product','المنتج'),t('Stock','المخزون'),t('Sold','اتباع'),t('Status','الحالة'),''],inv.map(p=>{const st=p.stock==null?['-',t('Not tracked','من غير تتبع')]:p.stock<=0?['out',t('Out of stock','خلص')]:p.stock<=5?['low',t('Low','قرب يخلص')]:['ok',t('OK','تمام')];return '<tr><td dir="ltr">'+esc(p.sku||'-')+'</td><td>'+esc(p.name)+'</td><td><b>'+(p.stock==null?'∞':fm(p.stock))+'</b> '+esc(unitTxt(p.unit,2))+'</td><td>'+fm(p.sold)+'</td><td><span class="badge st-'+st[0]+'">'+st[1]+'</span></td><td><button class="btn ghost sm" data-prod="'+esc(p.id)+'">'+t('Edit','تعديل')+'</button></td></tr>'}))+'<p style="opacity:.7;margin-top:8px;font-size:.9rem">'+t('Set the stock quantity and the product code from "Edit". Leave the stock empty to not track a product.','حدد كمية المخزون وكود المنتج من "تعديل". سيب المخزون فاضي لو مش عايز تتابع الكمية.')+'</p>':empty('No products.','مفيش منتجات.'))+'</div>'
+   +'<div class="card" style="margin-top:20px"><h3>'+t('Watermark on product images','الواترمارك على صور المنتجات')+'</h3><div class="wmwrap"><div>'+wmForm(w)+'</div><div><p style="font-weight:700;margin-bottom:8px">'+t('Preview','معاينة')+'</p><div class="pimg wmprev" id="wmp"></div></div></div></div>';
+  wmPreview();const f=$('wmf');f.oninput=wmPreview;f.onchange=wmPreview;
+  f.onsubmit=async e=>{e.preventDefault();const m=$('wmm');m.className='msg';m.textContent=t('Saving...','بيحفظ...');const r=await api('/api/admin/watermark','PUT',wmRead(f));
+    if(r.ok){if(r.j.content){DB=r.j.content;cacheDB(DB)}m.textContent=t('Saved.','اتحفظ.')}else{m.className='msg err';m.textContent=errT(r.j.error||'Error')}};
+});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-prod]');if(b)adminEdit('products',b.dataset.prod)});
+
+</script></body></html>

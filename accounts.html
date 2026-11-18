@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Accounts and permissions | Hook</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css"></head><body>
+<main>
+<section class="phero"><div class="wrap"><span class="script" data-ar="الإدارة">Admin</span><h1 data-ar="الحسابات والصلاحيات">Accounts and permissions</h1></div></section>
+<section style="padding-top:20px"><div class="wrap" id="dash"><p>…</p></div></section>
+</main><script src="config.js"></script><script src="seed.js"></script><script src="app.js"></script><script src="admin-ui.js"></script>
+<script>
+
+const PRESETS=[['Orders manager','مدير طلبات',['orders.view','orders.manage','reports.reply']],['Content editor','محرر محتوى',['products.edit','portfolio.edit','content.edit']],['Marketing','تسويق',['dashboard.view','coupons.manage','orders.view']],['Full team member','عضو فريق كامل',['dashboard.view','orders.view','orders.manage','products.edit','portfolio.edit','content.edit','coupons.manage','shipping.manage','reports.reply','log.view']]];
+let ACC=null;
+const roleTxt=u=>u.role==='admin'?t('Owner','المالك'):u.role==='staff'?t('Team','فريق'):t('Client','عميل');
+function accessDialog(u,perms){
+  const d=document.createElement('dialog');document.body.appendChild(d);const has=new Set(u.perms||[]);
+  d.innerHTML='<form><h3>'+t('Access for ','صلاحيات ')+esc(u.name||u.username)+' <small dir="ltr">@'+esc(u.username)+'</small></h3>'
+   +'<label><span>'+t('Account type','نوع الحساب')+'</span><select name="role"><option value="user"'+(u.role==='user'?' selected':'')+'>'+t('Client (no admin access)','عميل (من غير صلاحيات إدارة)')+'</option><option value="staff"'+(u.role==='staff'?' selected':'')+'>'+t('Team member','عضو فريق')+'</option></select></label>'
+   +'<div id="stf"><label><span>'+t('Job title (shown in his menu)','المسمى الوظيفي (بيظهر في قايمته)')+'</span><input name="title" maxlength="40" value="'+esc(u.title||'')+'" placeholder="'+t('e.g. Orders manager','مثلاً: مدير طلبات')+'"></label>'
+   +'<p style="font-weight:700;margin:10px 0 6px">'+t('Quick presets','اختيارات سريعة')+'</p><div class="btns">'+PRESETS.map((p,i)=>'<button type="button" class="btn ghost sm" data-ps="'+i+'">'+t(p[0],p[1])+'</button>').join('')+'</div>'
+   +'<p style="font-weight:700;margin:12px 0 6px">'+t('Permissions','الصلاحيات')+'</p>'+perms.map(p=>'<label class="chk perm"><input type="checkbox" name="perm" value="'+p+'"'+(has.has(p)?' checked':'')+'><span>'+t(...PERM_TXT[p])+'</span></label>').join('')+'</div>'
+   +'<p class="msg err" id="am"></p><div class="row"><button class="btn" type="submit">'+t('Save','حفظ')+'</button><button class="btn ghost" type="button" id="ac">'+t('Cancel','إلغاء')+'</button></div></form>';
+  const f=d.querySelector('form'),sync=()=>{d.querySelector('#stf').style.display=f.role.value==='staff'?'':'none'};f.role.onchange=sync;sync();
+  d.querySelectorAll('[data-ps]').forEach(b=>b.onclick=()=>{const p=PRESETS[b.dataset.ps];f.querySelectorAll('[name=perm]').forEach(c=>c.checked=p[2].includes(c.value));if(!f.title.value)f.title.value=p[0]});
+  d.querySelector('#ac').onclick=()=>{d.close();d.remove()};d.addEventListener('cancel',()=>d.remove());
+  f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector('[type=submit]');b.disabled=true;const r=await api('/api/admin/accounts/'+u.id,'PUT',{role:f.role.value,title:f.title.value,perms:[...f.querySelectorAll('[name=perm]:checked')].map(c=>c.value)});
+    if(r.ok){d.close();d.remove();afterSave()}else{b.disabled=false;$('am').textContent=errT(r.j.error||'Error')}};
+  d.showModal();
+}
+adminPage('accounts.view',async body=>{
+  const owner=ME.role==='admin';let rows=ST.users;
+  if(owner){const r=await api('/api/admin/accounts','POST',{});if(r.ok)ACC=r.j}
+  const byName={};if(ACC)ACC.users.forEach(u=>byName[u.username]=u);
+  body.innerHTML='<div class="card"><h3>'+t('Accounts created on the site','الحسابات اللي اتعملت على الموقع')+' ('+rows.length+')</h3>'
+   +(owner?'<p style="opacity:.85;margin-bottom:10px">'+t('Give any account a job title and choose exactly what it can do. Team members see only their own pages in the account menu. Only you (the main admin) can change this.','اديّ أي حساب مسمى وظيفي وحدد بالظبط يقدر يعمل إيه. أعضاء الفريق بيشوفوا صفحاتهم بس في قايمة الحساب. إنت بس (الأدمن الأساسي) اللي تقدر تغيّر ده.')+'</p>':'')
+   +tbl([t('Name','الاسم'),t('Username','اسم المستخدم'),t('Email','الإيميل'),t('Type','النوع'),t('Job title / access','المسمى والصلاحيات'),t('Orders','الطلبات'),t('Spent','دفع'),t('Joined','التسجيل'),''],rows.map(u=>{const a=byName[u.username]||u,perms=a.perms||[];
+     return '<tr><td>'+esc(u.name)+'</td><td>'+esc(u.username)+'</td><td dir="ltr">'+esc(u.email)+'</td><td><span class="badge '+(u.role==='admin'?'cs-active':u.role==='staff'?'cs-scheduled':'')+'">'+roleTxt(u)+'</span></td><td>'+(u.role==='staff'?'<b>'+esc(u.title||'')+'</b><br><small>'+perms.map(p=>esc(t(...PERM_TXT[p]))).join(' · ')+'</small>':'-')+'</td><td>'+u.orders+'</td><td>'+fm(u.spent)+'</td><td>'+esc(day(u.at))+'</td><td>'+(owner&&u.role!=='admin'&&a.id?'<button class="btn ghost sm" data-acc="'+esc(u.username)+'">'+t('Access','الصلاحيات')+'</button>':'')+'</td></tr>'}))+'</div>';
+});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-acc]');if(!b||!ACC)return;accessDialog(ACC.users.find(u=>u.username===b.dataset.acc),ACC.perms)});
+
+</script></body></html>

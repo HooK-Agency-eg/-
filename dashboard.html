@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dashboard | Hook</title><meta name="robots" content="noindex">
+<link rel="stylesheet" href="style.css"></head><body>
+<main>
+<section class="phero"><div class="wrap"><span class="script" data-ar="الإدارة">Admin</span><h1 data-ar="لوحة التحكم">Dashboard</h1></div></section>
+<section style="padding-top:20px"><div class="wrap" id="dash"><p>…</p></div></section>
+</main><script src="config.js"></script><script src="seed.js"></script><script src="app.js"></script><script src="admin-ui.js"></script>
+<script>
+
+adminPage('dashboard.view',body=>{
+  const s=ST,mx=Math.max(1,...s.days.map(d=>d.n)),c=s.counts;
+  body.innerHTML='<div class="kpis">'+kpi(s.today,'Visitors today','زوار النهارده')+kpi(s.week,'Visitors, last 7 days','زوار آخر 7 أيام')+kpi(s.visits,'Total visits (once per visitor per day)','إجمالي الزيارات (مرة للزائر في اليوم)')+kpi(s.unique,'Different visitors, all time','زوار مختلفين من الأول')+kpi(s.pageviews||0,'Page views','مشاهدات الصفحات')+kpi(s.accounts,'Accounts','عدد الحسابات')+kpi(s.orderCount,'Orders','الطلبات')+kpi(fm(s.revenue)+' '+cur(),'Order value (not cancelled)','قيمة الطلبات (من غير الملغي)')+'</div>'
+  +'<p style="margin-top:14px;opacity:.85;font-size:.92rem">'+t('Each visitor is recognised by a random ID saved in their browser, so opening many pages counts as one visit. A website cannot read a visitor\'s IP or MAC address, and one IP is often shared by many people.','كل زائر بيتعرّف بكود عشوائي محفوظ في متصفحه، فلو فتح صفحات كتير بيتحسب زيارة واحدة. الموقع مبيقدرش يقرا الـ IP ولا الـ MAC بتاع الجهاز، والـ IP الواحد بيكون مشترك بين ناس كتير.')+'</p>'
+  +'<div class="cols"><div class="card"><h3>'+t('Visitors per day, last 14 days','الزوار في اليوم، آخر 14 يوم')+'</h3><div class="days">'+s.days.map(d=>'<div style="height:'+Math.max(2,d.n/mx*100)+'%" title="'+d.d+'"><span>'+(d.n||'')+'</span></div>').join('')+'</div></div>'
+  +'<div class="card"><h3>'+t('Most viewed projects','أكتر المشاريع مشاهدة')+'</h3>'+(s.topWork.some(w=>w.views)?tbl(['#',t('Project','المشروع'),t('Category','التصنيف'),t('Views','المشاهدات'),'%'],s.topWork.slice(0,10).map((w,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(w.name)+'</td><td>'+esc(catName('work',w.cat)||'-')+'</td><td><b>'+w.views+'</b></td><td>'+w.share+'%</td></tr>')):empty('No views yet.','لسه مفيش مشاهدات.'))+'</div>'
+  +'<div class="card"><h3>'+t('Best-selling products','المنتجات الأكتر مبيعاً')+'</h3>'+(s.topProducts.length?tbl([t('Product','المنتج'),t('Sold','اتباع'),t('Revenue','الإيراد')],s.topProducts.slice(0,10).map(p=>'<tr><td>'+esc(p.name)+'</td><td><b>'+fm(p.qty)+'</b></td><td>'+fm(p.revenue)+' '+cur()+'</td></tr>')):empty('No orders yet.','لسه مفيش طلبات.'))+'</div>'
+  +'<div class="card"><h3>'+t('Top buyers (accounts)','أكتر العملاء شراءً (أصحاب الحسابات)')+'</h3>'+(s.topBuyers.length?tbl(['#',t('Account','الحساب'),t('Orders','الطلبات'),t('Spent','دفع'),t('Last order','آخر طلب')],s.topBuyers.slice(0,10).map((b,i)=>'<tr><td>'+(i+1)+'</td><td>'+esc(b.user)+'</td><td>'+b.orders+'</td><td><b>'+fm(b.spent)+' '+cur()+'</b></td><td>'+esc(day(b.last))+'</td></tr>')):empty('No purchases from signed-in accounts yet.','لسه مفيش مشتريات من أصحاب الحسابات.'))+'</div></div>'
+  +'<div class="card" style="margin-top:20px"><h3>'+t('Page views','مشاهدات الصفحات')+'</h3><p>'+t('Projects','المشاريع')+': '+c.work+' · '+t('Clients','العملاء')+': '+c.clients+' · '+t('Products','المنتجات')+': '+c.products+'</p>'+tbl([t('Page','الصفحة'),t('Views','المشاهدات')],s.pages.map(p=>'<tr><td dir="ltr">'+esc(p.p)+'</td><td>'+p.n+'</td></tr>'))+'</div>';
+});
+
+</script></body></html>
