@@ -321,3 +321,9 @@ body.textedit img[data-o]{outline:2px dashed var(--o);outline-offset:3px;cursor:
 .slide{flex:0 0 min(400px,82%)}
 .pimg{margin-bottom:18px}
 .wmprev{height:auto!important;aspect-ratio:1/1;max-width:420px}
+
+/* automatic translation */
+.trtog{margin:-2px 0 6px;font-weight:600}
+.trb{margin-inline-start:8px;border:0;background:transparent;cursor:pointer;font-size:1rem;padding:0 4px;opacity:.7;vertical-align:middle}.trb:hover{opacity:1}
+.trbusy{opacity:.55;background-image:linear-gradient(90deg,transparent,rgba(254,80,45,.18),transparent);background-size:200% 100%;animation:trsh 1s linear infinite}
+@keyframes trsh{to{background-position:-200% 0}}

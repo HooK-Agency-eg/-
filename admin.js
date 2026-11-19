@@ -71,10 +71,33 @@ function poster(file){
 const dlocal=iso=>{const d=new Date(iso),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes())};
 const dlg=document.createElement('dialog');document.body.appendChild(dlg);
 function btn(cls,txt,type){const b=document.createElement('button');b.className=cls;b.type=type||'button';b.textContent=txt;return b}
+/* automatic translation Arabic <-> English (Google Translate, through the Apps Script) */
+let AUTOTR=true;try{AUTOTR=localStorage.getItem('hookautotr')!=='0'}catch(e){}
+async function trCall(texts,from){const r=await req('/api/admin/translate','POST',{texts:texts,from:from});return r.ok&&Array.isArray(r.j.texts)?r.j.texts:null}
+function trToggle(){
+  const w=document.createElement('label'),c=document.createElement('input'),s=document.createElement('span');w.className='chk trtog';c.type='checkbox';c.checked=AUTOTR;s.textContent=t('Translate automatically (Arabic ⇄ English)','ترجمة تلقائية (عربي ⇄ إنجليزي)');
+  c.onchange=()=>{AUTOTR=c.checked;try{localStorage.setItem('hookautotr',AUTOTR?'1':'0')}catch(e){}};w.append(c,s);return w;
+}
+function autoPair(en,ar,multi,enBtnHost,arBtnHost){
+  const auto=new WeakSet(),orig=new Map([[en,en.value],[ar,ar.value]]),timers=new Map(),ph=new Map([[en,en.placeholder],[ar,ar.placeholder]]);
+  const run=async(src,dst,from,force)=>{
+    const v=src.value.trim();if(!v)return;
+    if(!force&&dst.value.trim()&&!auto.has(dst)&&dst.value!==orig.get(dst))return;
+    dst.classList.add('trbusy');const parts=multi?v.split('\n'):[v],out=await trCall(parts,from);dst.classList.remove('trbusy');
+    if(!out){dst.placeholder='⚠ '+t('Could not translate, write it yourself','معرفناش نترجم، اكتبه بنفسك');return}
+    dst.placeholder=ph.get(dst)||'';dst.value=out.join(multi?'\n':' ');auto.add(dst);dst._tr=true;dst.dispatchEvent(new Event('input'));
+  };
+  [[en,ar,'en'],[ar,en,'ar']].forEach(([src,dst,from])=>{
+    src.addEventListener('input',()=>{if(src._tr){src._tr=false;return}auto.delete(src);clearTimeout(timers.get(src));if(!AUTOTR)return;timers.set(src,setTimeout(()=>run(src,dst,from,false),900))});
+  });
+  const mkb=(host,src,dst,from)=>{if(!host)return;const b=document.createElement('button');b.type='button';b.className='trb';b.textContent='🌐';b.title=t('Translate this from the other language','ترجم ده من اللغة التانية');b.onclick=()=>run(src,dst,from,true);host.appendChild(b)};
+  mkb(enBtnHost,ar,en,'ar');mkb(arBtnHost,en,ar,'en');
+}
 function editor(kind,id){
   const it=id||SINGLE.includes(kind)?find(kind,id):null,isNew=!it;
   const form=document.createElement('form'),h=document.createElement('h3');
   h.textContent=(isNew?t('Add ','إضافة '):t('Edit ','تعديل '))+t(...TITLE[kind]);form.appendChild(h);
+  form.appendChild(trToggle());
   const inputs={};
   FIELDS[kind].forEach(([p,l,type,opts])=>{
     const w=document.createElement('label'),s=document.createElement('span');s.textContent=lab(l);w.appendChild(s);
@@ -108,6 +131,7 @@ function editor(kind,id){
     }
     form.appendChild(w);
   });
+  Object.keys(inputs).filter(k=>k.endsWith('.en')&&inputs[k.slice(0,-3)+'.ar']).forEach(k=>{const base=k.slice(0,-3),a=inputs[k],b=inputs[base+'.ar'];autoPair(a,b,base==='items',a.closest('label').querySelector('span'),b.closest('label').querySelector('span'))});
   if(kind==='products'){
     const show=(p,on)=>{const w=inputs[p]&&inputs[p].closest('label');if(w)w.style.display=on?'':'none'};
     const refresh=()=>{const dt=inputs.discType.value;show('disc',dt==='percent');show('discPrice',dt==='price');const course=inputs.kind.value==='course',unit=inputs.unit.value,per=inputs.pricing.value==='per',multi=!course&&unit!=='item';
@@ -147,8 +171,8 @@ function catEditor(kind){
     const r=document.createElement('div');r.className='catrow';
     const en=document.createElement('input'),arb=document.createElement('input'),x=btn('catx','×');en.placeholder='English';arb.placeholder='العربي';arb.dir='rtl';en.value=c.name.en||'';arb.value=c.name.ar||'';
     en.oninput=()=>c.name.en=en.value;arb.oninput=()=>c.name.ar=arb.value;x.setAttribute('aria-label','Delete');x.onclick=()=>{list.splice(i,1);draw()};
-    r.append(en,arb,x);box.appendChild(r)})};
-  draw();
+    r.append(en,arb,x);box.appendChild(r);autoPair(en,arb,false)})};
+  form.insertBefore(trToggle(),box);draw();
   const add=btn('btn ghost',t('+ Add section','+ ضيف قسم'));add.onclick=()=>{list.push({id:'',name:{en:'',ar:''}});draw()};form.appendChild(add);
   const msg=document.createElement('p');msg.className='msg err';form.appendChild(msg);
   const row=document.createElement('div');row.className='row';const ok=btn('btn',t('Save','حفظ'),'submit'),no=btn('btn ghost',t('Cancel','إلغاء'));no.onclick=()=>dlg.close();row.append(ok,no);form.appendChild(row);
@@ -168,8 +192,8 @@ function shipEditor(){
     const r=document.createElement('div'),en=document.createElement('input'),arb=document.createElement('input'),fee=document.createElement('input'),x=btn('catx','×');r.className='catrow shiprow';
     en.placeholder='English';arb.placeholder='العربي';arb.dir='rtl';fee.type='number';fee.min=0;fee.step='any';fee.placeholder=t('Fee EGP','التكلفة');en.value=c.name.en||'';arb.value=c.name.ar||'';fee.value=c.fee==null?'':c.fee;
     en.oninput=()=>c.name.en=en.value;arb.oninput=()=>c.name.ar=arb.value;fee.oninput=()=>c.fee=fee.value;x.setAttribute('aria-label','Delete');x.onclick=()=>{list.splice(i,1);draw()};
-    r.append(en,arb,fee,x);box.appendChild(r)})};
-  draw();
+    r.append(en,arb,fee,x);box.appendChild(r);autoPair(en,arb,false)})};
+  form.insertBefore(trToggle(),box);draw();
   const add=btn('btn ghost',t('+ Add governorate','+ ضيف محافظة'));add.onclick=()=>{list.push({id:'',name:{en:'',ar:''},fee:''});draw();box.lastChild&&box.lastChild.querySelector('input').focus()};form.appendChild(add);
   const msg=document.createElement('p');msg.className='msg err';form.appendChild(msg);
   const row=document.createElement('div');row.className='row';const ok=btn('btn',t('Save','حفظ'),'submit'),no=btn('btn ghost',t('Cancel','إلغاء'));no.onclick=()=>dlg.close();row.append(ok,no);form.appendChild(row);
@@ -205,7 +229,7 @@ function textEditor(el){
   const key=el.dataset.en,tx=(DB.texts||{})[key]||{},form=document.createElement('form'),h=document.createElement('h3');
   h.textContent=t('Edit text','تعديل النص');form.appendChild(h);
   const mk=(lb,val,rtl)=>{const w=document.createElement('label'),s=document.createElement('span'),a=document.createElement('textarea');s.textContent=lb;a.rows=3;a.value=val;if(rtl)a.dir='rtl';w.append(s,a);form.appendChild(w);return a};
-  const en=mk('English',tx.en||key),arb=mk('العربي',tx.ar||el.dataset.ar||'',true);
+  form.appendChild(trToggle());const en=mk('English',tx.en||key),arb=mk('العربي',tx.ar||el.dataset.ar||'',true);autoPair(en,arb,false,en.previousSibling,arb.previousSibling);
   const msg=document.createElement('p');msg.className='msg err';form.appendChild(msg);
   const row=document.createElement('div');row.className='row';const ok=btn('btn',t('Save','حفظ'),'submit'),no=btn('btn ghost',t('Cancel','إلغاء')),rs=btn('btn del',t('Back to default','رجّعه للأصلي'));no.onclick=()=>dlg.close();
   const send=async body=>{ok.disabled=true;msg.className='msg';msg.textContent=t('Saving...','بيحفظ...');

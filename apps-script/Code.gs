@@ -481,7 +481,7 @@ function permFor_(p, b) {
   if (/^\/api\/admin\/orders/.test(p)) return 'orders.manage';
   if (/^\/api\/admin\/reports/.test(p)) return 'reports.reply';
   if (p === '/api/admin/log') return 'log.view';
-  if (/^\/api\/admin\/upload/.test(p)) return 'upload';
+  if (/^\/api\/admin\/upload/.test(p) || p === '/api/admin/translate') return 'upload';
   if (p === '/api/admin/password') return 'self';
   return 'owner';
 }
@@ -514,6 +514,11 @@ function adminDo_(p, m, b, me) {
     return R_(200, { video: 'https://drive.google.com/file/d/' + saveFile_(f) + '/preview' });
   }
   const C = getContent_();
+  if (p === '/api/admin/translate' && m === 'POST') {
+    if (limited_('tr:' + me.id, 400, 3600)) return R_(429, { error: 'Too many requests, try later' });
+    const from = b.from === 'ar' ? 'ar' : 'en', to = from === 'ar' ? 'en' : 'ar', list = (Array.isArray(b.texts) ? b.texts : []).slice(0, 15).map(x => S_(x, 1500));
+    try { return R_(200, { texts: list.map(x => x ? String(LanguageApp.translate(x, from, to)) : '') }); } catch (e) { return R_(502, { error: 'Translation is not available right now' }); }
+  }
   if (p === '/api/admin/log' && m === 'POST') return R_(200, { items: rows_('log').reverse().slice(0, 500).map(x => ({ at: iso_(x[0]), user: String(x[2]), action: String(x[3]), target: String(x[4]), detail: String(x[5]) })) });
   if (p === '/api/admin/accounts' && m === 'POST') return R_(200, { perms: PERMS, users: users_().map(u => ({ id: u.id, username: u.username, name: u.name, email: u.email, role: u.role, title: u.title || '', perms: u.perms || [], at: u.at })) });
   if ((r = p.match(/^\/api\/admin\/accounts\/(\w+)$/)) && m === 'PUT') {
