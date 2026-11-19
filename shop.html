@@ -26,7 +26,7 @@ function card(p,best){
   const label=L(p.tag)||catName('shop',p.cat);
   return '<article class="card prod'+(on?' deal':'')+(out?' soldout':'')+'" data-k="products" data-id="'+esc(p.id)+'">'
    +(on?'<span class="dbadge">-'+discPct(p)+'%</span>':'')
-   +(p.img?'<div class="pimg" data-zoom="'+esc(p.img)+'" data-name="'+esc(L(p.name))+'" role="button" tabindex="0" aria-label="'+t('View the image','شوف الصورة')+'"><img src="'+esc(p.img)+'" alt="'+esc(L(p.name))+'" loading="lazy">'+wmHTML(DB.watermark)+'<span class="zhint">⤢</span></div>':'')
+   +(p.img?'<div class="pimg"'+bgv(p.img)+' data-zoom="'+esc(p.img)+'" data-name="'+esc(L(p.name))+'" role="button" tabindex="0" aria-label="'+t('View the image','شوف الصورة')+'"><img src="'+esc(p.img)+'" alt="'+esc(L(p.name))+'" loading="lazy">'+wmHTML(DB.watermark)+'<span class="zhint">⤢</span></div>':'')
    +(course?'<span class="tag cbadge">'+t('Course','كورس')+'</span> ':'')+(best?'<span class="tag bbadge">'+t('Best seller','الأكثر مبيعاً')+'</span> ':'')+(label?'<span class="tag">'+esc(label)+'</span>':'')
    +'<h3>'+esc(L(p.name))+'</h3>'
    +(L(p.desc)?'<p class="pd">'+esc(L(p.desc))+'</p>':'')
@@ -60,32 +60,7 @@ function tick(){
 }
 onContent(draw);document.addEventListener('auth',()=>{if(DB)draw()});
 $('sorter').onchange=e=>{so=e.target.value;draw()};
-/* image viewer: tap a product photo to open it, then zoom in and out */
-let Z={s:1,x:0,y:0},zp=new Map(),zd=0,zbox=null,zmv=false,zdown=null;
-function zbuild(){
-  zbox=document.createElement('div');zbox.className='zoom';zbox.hidden=true;zbox.setAttribute('role','dialog');zbox.setAttribute('aria-modal','true');
-  zbox.innerHTML='<div class="zstage"><div class="zwrap"><img alt="" draggable="false"><span class="zwm"></span></div></div><div class="ztools"><button type="button" data-z="out" aria-label="-">−</button><button type="button" data-z="reset" aria-label="Reset">1:1</button><button type="button" data-z="in" aria-label="+">+</button><button type="button" data-z="x" aria-label="Close">×</button></div><p class="zcap"></p>';
-  document.body.appendChild(zbox);
-  const st=zbox.querySelector('.zstage');
-  zbox.addEventListener('click',e=>{const b=e.target.closest('[data-z]');if(b){const a=b.dataset.z;if(a==='x')zclose();else if(a==='reset')zset(1,0,0);else zby(a==='in'?1.5:1/1.5,0,0);return}if((e.target===zbox||e.target===st)&&!zmv)zclose();zmv=false});
-  st.addEventListener('wheel',e=>{e.preventDefault();const r=st.getBoundingClientRect();zby(e.deltaY<0?1.2:1/1.2,e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2))},{passive:false});
-  st.addEventListener('dblclick',e=>{const r=st.getBoundingClientRect();Z.s>1?zset(1,0,0):zby(2.5,e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2))});
-  st.addEventListener('pointerdown',e=>{st.setPointerCapture(e.pointerId);zp.set(e.pointerId,{x:e.clientX,y:e.clientY});zd=zdist();zmv=false;zdown={x:e.clientX,y:e.clientY}});
-  st.addEventListener('pointermove',e=>{const o=zp.get(e.pointerId);if(!o)return;const n={x:e.clientX,y:e.clientY};if(zdown&&Math.hypot(n.x-zdown.x,n.y-zdown.y)>5)zmv=true;
-    if(zp.size===1){if(Z.s>1){zset(Z.s,Z.x+n.x-o.x,Z.y+n.y-o.y)}}
-    zp.set(e.pointerId,n);if(zp.size===2){const d=zdist();if(zd)zby(d/zd,0,0);zd=d}});
-  const up=e=>{zp.delete(e.pointerId);zd=0};st.addEventListener('pointerup',up);st.addEventListener('pointercancel',up);
-}
-const zdist=()=>{const a=[...zp.values()];return a.length<2?0:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)};
-function zset(s,x,y){s=Math.min(6,Math.max(1,s));if(s===1){x=0;y=0}else{const lim=(s-1)*(zbox.querySelector('.zwrap').offsetWidth/2)+40,limy=(s-1)*(zbox.querySelector('.zwrap').offsetHeight/2)+40;x=Math.max(-lim,Math.min(lim,x));y=Math.max(-limy,Math.min(limy,y))}
-  Z={s,x,y};const w=zbox.querySelector('.zwrap');w.style.transform='translate('+x+'px,'+y+'px) scale('+s+')';zbox.classList.toggle('zoomed',s>1)}
-function zby(f,px,py){const s2=Math.min(6,Math.max(1,Z.s*f)),k=s2/Z.s;zset(s2,px-(px-Z.x)*k,py-(py-Z.y)*k)}
-function zopen(url,name){if(!zbox)zbuild();zbox.querySelector('img').src=url;zbox.querySelector('img').alt=name;zbox.querySelector('.zcap').textContent=name;zbox.querySelector('.zwm').innerHTML=wmHTML(DB.watermark);zset(1,0,0);zbox.hidden=false;document.body.style.overflow='hidden'}
-function zclose(){if(zbox){zbox.hidden=true;document.body.style.overflow=''}}
-document.addEventListener('keydown',e=>{if(!zbox||zbox.hidden)return;if(e.key==='Escape')zclose();else if(e.key==='+'||e.key==='=')zby(1.5,0,0);else if(e.key==='-')zby(1/1.5,0,0);else if(e.key==='0')zset(1,0,0)});
-document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('.pimg[data-zoom]'))zopen(e.target.dataset.zoom,e.target.dataset.name)});
 document.addEventListener('click',e=>{
-  const zi=e.target.closest('.pimg[data-zoom]');if(zi){if(!e.target.closest('.edit'))zopen(zi.dataset.zoom,zi.dataset.name);return}
   const s=e.target.closest('[data-s]');if(s){sc=s.dataset.s;draw();return}
   const q=e.target.closest('.qty button');
   if(q){const i=q.parentNode.querySelector('input'),st=+i.step||1,mn=+i.min||0,mx=i.max?+i.max:1e9;i.value=Math.min(mx,Math.max(mn,Math.round((+i.value+ +q.dataset.d*st)*100)/100));return}

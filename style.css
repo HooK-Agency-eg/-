@@ -294,7 +294,7 @@ body.textedit img[data-o]{outline:2px dashed var(--o);outline-offset:3px;cursor:
 .zoom[hidden]{display:none}
 .zstage{position:relative;flex:1;width:100%;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;cursor:grab}
 .zoom.zoomed .zstage{cursor:move}
-.zwrap{position:relative;width:min(92vw,980px);max-height:78vh;container-type:inline-size;background:#fff;transition:transform .12s ease-out;will-change:transform}
+.zwrap{position:relative;width:min(92vw,980px);max-height:78vh;container-type:inline-size;background:#fdfbee;transition:transform .12s ease-out;will-change:transform}
 .zwrap img{width:100%;height:auto;max-height:78vh;object-fit:contain;display:block;user-select:none;-webkit-user-drag:none}
 .zwm{position:absolute;inset:0;pointer-events:none}.zwm .wm{inset:0}
 .ztools{display:flex;gap:10px;margin-top:12px}

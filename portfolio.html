@@ -17,7 +17,7 @@ onContent(()=>{
   if(cf!=='all'&&!cats('work').some(c=>c.id===cf))cf='all';
   $('tabs').innerHTML=[['all',t('All','الكل')]].concat(cats('work').map(c=>[c.id,L(c.name)])).map(c=>'<button data-f="'+esc(c[0])+'" aria-pressed="'+(c[0]==cf)+'">'+esc(c[1])+'</button>').join('');
   const cn=k=>catName('work',k);
-  $('work').innerHTML=DB.work.filter(w=>cf=='all'||w.cat==cf).map(w=>'<article class="card work" data-k="work" data-id="'+esc(w.id)+'"><a data-view="'+esc(w.id)+'"'+(w.video?' data-video="'+esc(w.video)+'"':'')+' href="'+esc(w.img)+'" target="_blank" rel="noopener" aria-label="'+esc(L(w.name))+'"><img src="'+esc(w.img)+'" alt="'+esc(L(w.name))+'" loading="lazy">'+(w.video?'<span class="vplay">▶</span>':'')+'</a>'+(cn(w.cat)?'<span class="tag">'+esc(cn(w.cat))+'</span>':'')+'<h3>'+esc(L(w.name))+'</h3><p>'+esc(L(w.desc))+'</p></article>').join('');
+  $('work').innerHTML=DB.work.filter(w=>cf=='all'||w.cat==cf).map(w=>'<article class="card work" data-k="work" data-id="'+esc(w.id)+'"><a data-view="'+esc(w.id)+'"'+(w.video?' data-video="'+esc(w.video)+'"':'')+bgv(w.img)+' href="'+esc(w.img)+'" target="_blank" rel="noopener" aria-label="'+esc(L(w.name))+'"><img src="'+esc(w.img)+'" alt="'+esc(L(w.name))+'" loading="lazy">'+(w.video?'<span class="vplay">▶</span>':'')+'</a>'+(cn(w.cat)?'<span class="tag">'+esc(cn(w.cat))+'</span>':'')+'<h3>'+esc(L(w.name))+'</h3><p>'+esc(L(w.desc))+'</p></article>').join('');
   document.querySelectorAll('#work .card').forEach(c=>vio.observe(c));
 });
 $('tabs').onclick=e=>{const b=e.target.closest('button');if(b){cf=b.dataset.f;runHooks()}};

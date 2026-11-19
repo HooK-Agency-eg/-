@@ -136,6 +136,7 @@ function wmHTML(w){
   if(w.position==='tile')return '<div class="wm wm-t" style="'+st+'" aria-hidden="true"><div>'+Array(60).fill('<i>'+item+'</i>').join('')+'</div></div>';
   return '<div class="wm wm-'+(w.position==='corner'?'k':'c')+'" style="'+st+'" aria-hidden="true"><i>'+item+'</i></div>';
 }
+const bgv=u=>u?' style="--bg:url(\''+String(u).replace(/["'()\s\\]/g,c=>encodeURIComponent(c))+'\')"':'';
 const isTeam=()=>!!ME&&(ME.role==='admin'||ME.role==='staff');
 const can=p=>!!ME&&(ME.role==='admin'||(ME.role==='staff'&&(ME.perms||[]).includes(p)));
 const PAGES=[['dashboard.view','dashboard.html','Dashboard','لوحة التحكم'],['orders.view','orders.html','Orders and invoices','الطلبات والفواتير'],['reports.reply','support.html','Problem reports','بلاغات المشاكل'],['coupons.manage','coupons.html','Coupons','الكوبونات'],['shipping.manage','shipping.html','Shipping','الشحن'],['products.edit','store.html','Store: stock and watermark','المتجر: المخزون والواترمارك'],['log.view','log.html','Activity log','السجل'],['accounts.view','accounts.html','Accounts and permissions','الحسابات والصلاحيات']];
@@ -220,6 +221,41 @@ $('order').onclick=async()=>{
   CK.address='';saveCK();renderCart();renderCheckout();
   $('odone').innerHTML=`<div class="ok"><b>${t('Order received!','وصلنا طلبك!')}</b><br>${t('Order no.','رقم الطلب')} <b dir="ltr">${esc(j.inv)}</b> - ${fm(j.total)} ${cur()}<br>${t('We will confirm it with you on WhatsApp. ','هنأكده معاك على واتساب. ')}${mail}</div>`;
 };
+
+/* ---------- photo viewer: opens a photo on the same page, with zoom in and out ---------- */
+(()=>{
+let Z={s:1,x:0,y:0},zp=new Map(),zd=0,zbox=null,zmv=false,zdown=null;
+function zbuild(){
+  zbox=document.createElement('div');zbox.className='zoom';zbox.hidden=true;zbox.setAttribute('role','dialog');zbox.setAttribute('aria-modal','true');
+  zbox.innerHTML='<div class="zstage"><div class="zwrap"><img alt="" draggable="false"><span class="zwm"></span></div></div><div class="ztools"><button type="button" data-z="out" aria-label="-">−</button><button type="button" data-z="reset" aria-label="Reset">1:1</button><button type="button" data-z="in" aria-label="+">+</button><button type="button" data-z="x" aria-label="Close">×</button></div><p class="zcap"></p>';
+  document.body.appendChild(zbox);
+  const st=zbox.querySelector('.zstage');
+  zbox.addEventListener('click',e=>{const b=e.target.closest('[data-z]');if(b){const a=b.dataset.z;if(a==='x')zclose();else if(a==='reset')zset(1,0,0);else zby(a==='in'?1.5:1/1.5,0,0);return}if((e.target===zbox||e.target===st)&&!zmv)zclose();zmv=false});
+  st.addEventListener('wheel',e=>{e.preventDefault();const r=st.getBoundingClientRect();zby(e.deltaY<0?1.2:1/1.2,e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2))},{passive:false});
+  st.addEventListener('dblclick',e=>{const r=st.getBoundingClientRect();Z.s>1?zset(1,0,0):zby(2.5,e.clientX-(r.left+r.width/2),e.clientY-(r.top+r.height/2))});
+  st.addEventListener('pointerdown',e=>{st.setPointerCapture(e.pointerId);zp.set(e.pointerId,{x:e.clientX,y:e.clientY});zd=zdist();zmv=false;zdown={x:e.clientX,y:e.clientY}});
+  st.addEventListener('pointermove',e=>{const o=zp.get(e.pointerId);if(!o)return;const n={x:e.clientX,y:e.clientY};if(zdown&&Math.hypot(n.x-zdown.x,n.y-zdown.y)>5)zmv=true;
+    if(zp.size===1){if(Z.s>1){zset(Z.s,Z.x+n.x-o.x,Z.y+n.y-o.y)}}
+    zp.set(e.pointerId,n);if(zp.size===2){const d=zdist();if(zd)zby(d/zd,0,0);zd=d}});
+  const up=e=>{zp.delete(e.pointerId);zd=0};st.addEventListener('pointerup',up);st.addEventListener('pointercancel',up);
+}
+const zdist=()=>{const a=[...zp.values()];return a.length<2?0:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)};
+function zset(s,x,y){s=Math.min(6,Math.max(1,s));if(s===1){x=0;y=0}else{const lim=(s-1)*(zbox.querySelector('.zwrap').offsetWidth/2)+40,limy=(s-1)*(zbox.querySelector('.zwrap').offsetHeight/2)+40;x=Math.max(-lim,Math.min(lim,x));y=Math.max(-limy,Math.min(limy,y))}
+  Z={s,x,y};const w=zbox.querySelector('.zwrap');w.style.transform='translate('+x+'px,'+y+'px) scale('+s+')';zbox.classList.toggle('zoomed',s>1)}
+function zby(f,px,py){const s2=Math.min(6,Math.max(1,Z.s*f)),k=s2/Z.s;zset(s2,px-(px-Z.x)*k,py-(py-Z.y)*k)}
+function zopen(url,name,wm){if(!zbox)zbuild();zbox.querySelector('img').src=url;zbox.querySelector('img').alt=name;zbox.querySelector('.zcap').textContent=name;zbox.querySelector('.zwm').innerHTML=wm?wmHTML(DB.watermark):'';zset(1,0,0);zbox.hidden=false;document.body.style.overflow='hidden'}
+function zclose(){if(zbox){zbox.hidden=true;document.body.style.overflow=''}}
+document.addEventListener('keydown',e=>{if(!zbox||zbox.hidden)return;if(e.key==='Escape')zclose();else if(e.key==='+'||e.key==='=')zby(1.5,0,0);else if(e.key==='-')zby(1/1.5,0,0);else if(e.key==='0')zset(1,0,0)});
+
+window.zopen=zopen;
+document.addEventListener('click',e=>{
+  if(e.target.closest('.edit,.eb'))return;
+  const pz=e.target.closest('.pimg[data-zoom]');if(pz){zopen(pz.dataset.zoom,pz.dataset.name,true);return}
+  const a=e.target.closest('a[data-view]');if(!a||a.dataset.video||document.body.classList.contains('textedit'))return;
+  e.preventDefault();const im=a.querySelector('img');zopen(a.getAttribute('href'),im?im.alt:'',false);
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.matches&&e.target.matches('.pimg[data-zoom]'))zopen(e.target.dataset.zoom,e.target.dataset.name,true)});
+})();
 
 /* ---------- slider (LTR and RTL) ---------- */
 function slider(root,ms){
