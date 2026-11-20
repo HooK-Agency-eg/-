@@ -30,7 +30,7 @@ const L=o=>o?(ar()?(o.ar||o.en):(o.en||o.ar))||'':'';
 const fmtPhone=d=>/^20\d{10}$/.test(d)?`+20 ${d.slice(2,5)} ${d.slice(5,8)} ${d.slice(8)}`:'+'+d;
 const pages=[['index.html','Home','الرئيسية'],['services.html','Services','خدماتنا'],['portfolio.html','Portfolio','أعمالنا'],['shop.html','Shop','المتجر'],['contact.html','Contact','كلمنا']];
 const here=(()=>{let h=location.pathname.split('/').pop()||'index';if(!/\.\w+$/.test(h))h+='.html';return h})();
-(()=>{try{if(location.protocol==='file:')return;const c=location.pathname.replace(/index\.html$/,'').replace(/\.html$/,'');if(c!==location.pathname)history.replaceState(null,'',(c||'/')+location.search+location.hash)}catch(e){}})();
+(()=>{try{if(location.protocol==='file:')return;const c=location.pathname.replace(/index\.html$/,'').replace(/\.html$/,'');if(!/HookApp/.test(navigator.userAgent)&&c!==location.pathname)history.replaceState(null,'',(c||'/')+location.search+location.hash)}catch(e){}})();
 const post=(u,b)=>fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});
 let DB=null,ME=null;const hooks=[];
 const onContent=fn=>{hooks.push(fn);if(DB)fn()};
@@ -106,7 +106,7 @@ new ResizeObserver(paint).observe(document.body);
 const DEFCATS={work:[{id:'Design',name:{en:'Design',ar:'تصميم'}},{id:'Content',name:{en:'Content',ar:'محتوى'}},{id:'Media Buying',name:{en:'Media Buying',ar:'شراء إعلانات'}}],shop:[{id:'packages',name:{en:'Marketing packages',ar:'باقات التسويق'}}]};
 const cats=k=>(DB&&DB.categories&&DB.categories[k])||DEFCATS[k];
 const catName=(k,id)=>{const c=cats(k).find(x=>x.id===id);return c?L(c.name):''};
-const pdef=p=>Object.assign({kind:'product',unit:'item',pricing:'total',min:1,step:1,amount:0,disc:0,discType:'percent',discPrice:0,discEnds:'',cat:'packages',episodes:0,hours:0,desc:{en:'',ar:''},tag:{en:'',ar:''},per:{en:'',ar:''},items:[],img:'',sku:'',stock:null,sold:0,added:''},p);
+const pdef=p=>Object.assign({license:'buy',period:'month',demoUrl:'',demoUser:'',demoPass:'',kind:'product',unit:'item',pricing:'total',min:1,step:1,amount:0,disc:0,discType:'percent',discPrice:0,discEnds:'',cat:'packages',episodes:0,hours:0,desc:{en:'',ar:''},tag:{en:'',ar:''},per:{en:'',ar:''},items:[],img:'',sku:'',stock:null,sold:0,added:''},p);
 const prod=id=>{const p=DB&&DB.products.find(x=>x.id===id);return p&&pdef(p)};
 const cur=()=>t('EGP','ج.م');
 const discOn=(p,now)=>{if(p.discEnds&&!(Date.parse(p.discEnds)>(now||Date.now())))return false;return p.discType==='price'?(+p.discPrice>0&&+p.discPrice<+p.price):+p.disc>0};
@@ -118,8 +118,11 @@ const unitTxt=(u,q)=>{const x=UN[u];return x?(ar()?x[2]:(q==1?x[0]:x[1])):''};
 const isPer=p=>p.pricing==='per'&&p.unit!=='item';
 const lineTxt=(i)=>(i.pricing==='per'&&i.unit&&i.unit!=='item')?fm(i.q)+' '+unitTxt(i.unit,i.q):(i.q>1?'× '+i.q:'');
 const lineTotal=(p,q)=>Math.round(effPrice(p)*q*100)/100;
+const licOf=i=>!i||!i.license?'':(i.license==='rent'?t('Rent','إيجار')+' ('+(i.period==='year'?t('yearly','سنوي'):t('monthly','شهري'))+')':t('One-time purchase','شراء لمرة واحدة'));
+const licTxt=p=>p&&p.kind==='system'?licOf({license:p.license,period:p.license==='rent'?p.period:''}):'';
 function priceTxt(p){
   const e=effPrice(p),c=cur();
+  if(p.kind==='system')return fm(e)+' '+c+(p.license==='rent'?' / '+(p.period==='year'?t('year','سنة'):t('month','شهر')):' · '+t('one-time','لمرة واحدة'));
   if(isPer(p))return fm(e)+' '+c+' / '+unitTxt(p.unit,1);
   if(p.unit!=='item'&&p.amount)return fm(e)+' '+c+' · '+t('pack of ','عبوة ')+fm(p.amount)+' '+unitTxt(p.unit,p.amount);
   return fm(e)+' '+c+(L(p.per)?' · '+L(p.per):'');
@@ -136,6 +139,7 @@ function wmHTML(w){
   if(w.position==='tile')return '<div class="wm wm-t" style="'+st+'" aria-hidden="true"><div>'+Array(60).fill('<i>'+item+'</i>').join('')+'</div></div>';
   return '<div class="wm wm-'+(w.position==='corner'?'k':'c')+'" style="'+st+'" aria-hidden="true"><i>'+item+'</i></div>';
 }
+const IN_APP=/HookApp/.test(navigator.userAgent);
 const bgv=u=>u?' style="--bg:url(\''+String(u).replace(/["'()\s\\]/g,c=>encodeURIComponent(c))+'\')"':'';
 const isTeam=()=>!!ME&&(ME.role==='admin'||ME.role==='staff');
 const can=p=>!!ME&&(ME.role==='admin'||(ME.role==='staff'&&(ME.perms||[]).includes(p)));
@@ -208,14 +212,14 @@ function ckError(){
 }
 $('order').onclick=async()=>{
   const eb=$('oerr');eb.textContent='';const v=ckError();if(v){eb.textContent=v;return}
-  const w=window.open('about:blank','_blank'),btn=$('order'),label=btn.textContent;btn.disabled=true;btn.textContent=t('Sending...','بيتبعت...');
-  const c=calc(),lines=cart.map(i=>{const p=prod(i.id),q=isPer(p)?fm(i.q)+' '+unitTxt(p.unit,i.q):(i.q>1?'× '+i.q:'');return `- ${L(p.name)}${p.sku?' ['+p.sku+']':''} ${q} (${fm(lineTotal(p,i.q))} ${cur()}${discOn(p)?', -'+discPct(p)+'%':''})`});
+  const w=IN_APP?null:window.open('about:blank','_blank'),btn=$('order'),label=btn.textContent;btn.disabled=true;btn.textContent=t('Sending...','بيتبعت...');
+  const c=calc(),lines=cart.map(i=>{const p=prod(i.id),q=isPer(p)?fm(i.q)+' '+unitTxt(p.unit,i.q):(i.q>1?'× '+i.q:'');return `- ${L(p.name)}${p.sku?' ['+p.sku+']':''}${licTxt(p)?' ('+licTxt(p)+')':''} ${q} (${fm(lineTotal(p,i.q))} ${cur()}${discOn(p)?', -'+discPct(p)+'%':''})`});
   const rg=regions().find(g=>g.id===CK.region),body={items:cartItems(),coupon:CP?CP.code:'',lang:ar()?'ar':'en',email:(CK.email||'').trim(),ship:CK.ship?{name:CK.name.trim(),phone:CK.phone.trim(),region:CK.region,address:CK.address.trim(),email:(CK.email||'').trim()}:null};
   let r,j={};try{r=await post('/api/order',body);j=await r.json()}catch(x){}
   btn.disabled=false;btn.textContent=label;
   if(!r||!r.ok){if(w)w.close();eb.textContent=r?ordErr(j):t('Could not send the order. Check your connection and try again.','معرفناش نبعت الطلب. اتأكد من النت وجرّب تاني.');return}
   const msg=t('Hi Hook, I want to order:','أهلاً هوك، عايز أطلب:')+'\n'+lines.join('\n')+`\n${t('Subtotal','المجموع')}: ${fm(j.subtotal)} ${cur()}`+(j.discount?`\n${t('Coupon','كوبون')} ${CP.code}: -${fm(j.discount)} ${cur()}`:'')+(body.ship?`\n${t('Shipping','الشحن')} (${rg?L(rg.name):''}): +${fm(j.ship)} ${cur()}`:'')+`\n${t('Total','الإجمالي')}: ${fm(j.total)} ${cur()}\n${t('Order no.','رقم الطلب')}: ${j.inv}`+(body.ship?`\n${body.ship.name} - ${body.ship.phone}\n${body.ship.address}`:'');
-  const url=`https://wa.me/${DB.contact.whatsapp}?text=${encodeURIComponent(msg)}`;if(w)w.location.href=url;else open(url,'_blank');
+  const url=`https://wa.me/${DB.contact.whatsapp}?text=${encodeURIComponent(msg)}`;if(w)w.location.href=url;else if(IN_APP)location.href=url;else open(url,'_blank');
   const mail=(body.email&&body.email.length)?t('Your invoice will be emailed to ','الفاتورة هتتبعت على ')+esc(body.email)+t(' after confirmation.',' بعد التأكيد.'):'';
   cart=[];CP=null;try{localStorage.setItem('hookcart','[]')}catch(x){}
   CK.address='';saveCK();renderCart();renderCheckout();

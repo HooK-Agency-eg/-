@@ -36,13 +36,13 @@ function draw(){
     return}
   const reg=mode==='register';
   b.innerHTML='<form class="card" id="af"><div class="tabs"><button type="button" data-m="login" aria-pressed="'+!reg+'">'+t('Sign in','دخول')+'</button><button type="button" data-m="register" aria-pressed="'+reg+'">'+t('Create account','اعمل حساب')+'</button></div>'
-   +(window.HOOK_GOOGLE_ID?'<div class="gwrap" id="gbtn"></div><div class="or"><span>'+t('or','أو')+'</span></div>':'')
+   +(window.HOOK_GOOGLE_ID&&!IN_APP?'<div class="gwrap" id="gbtn"></div><div class="or"><span>'+t('or','أو')+'</span></div>':'')
    +(reg?'<label><span>'+t('Username','اسم المستخدم')+'</span><input name="username" autocomplete="username" required minlength="3" maxlength="24" pattern="[A-Za-z0-9_]+"></label><label><span>'+t('Email','الإيميل')+'</span><input name="email" type="email" autocomplete="email" required></label>'
         :'<label><span>'+t('Username or email','اسم المستخدم أو الإيميل')+'</span><input name="id" autocomplete="username" required></label>')
    +'<label><span>'+t('Password','الباسورد')+'</span><input name="password" type="password" autocomplete="'+(reg?'new-password':'current-password')+'" required minlength="'+(reg?8:1)+'"></label>'
    +'<label class="chk"><input type="checkbox" name="remember" checked><span>'+t('Keep me signed in','خليني مسجّل دخول')+'</span></label>'
    +'<button class="btn" type="submit">'+(reg?t('Create account','اعمل الحساب'):t('Sign in','دخول'))+'</button><p class="msg err" id="err"></p></form>';
-  if(window.HOOK_GOOGLE_ID)drawGoogle();
+  if(window.HOOK_GOOGLE_ID&&!IN_APP)drawGoogle();
   b.querySelector('.tabs').onclick=e=>{const x=e.target.closest('button');if(x){mode=x.dataset.m;draw()}};
   $('af').onsubmit=async e=>{
     e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.remember=e.target.remember.checked;if(reg)d.lang=ar()?'ar':'en';

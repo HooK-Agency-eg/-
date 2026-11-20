@@ -38,9 +38,10 @@ function id_(p) { return p + Utilities.getUuid().replace(/-/g, '').slice(0, 8); 
 function legacyRows_(n) { const s = ss_().getSheetByName(n); return !s || s.getLastRow() < 2 ? [] : s.getRange(2, 1, s.getLastRow() - 1, 2).getValues(); }
 const DEFCATS = { work: [{ id: 'Design', name: { en: 'Design', ar: 'تصميم' } }, { id: 'Content', name: { en: 'Content', ar: 'محتوى' } }, { id: 'Media Buying', name: { en: 'Media Buying', ar: 'شراء إعلانات' } }], shop: [{ id: 'packages', name: { en: 'Marketing packages', ar: 'باقات التسويق' } }] };
 function normProd_(p) {
-  p.cat = p.cat || 'packages'; p.kind = p.kind === 'course' ? 'course' : 'product'; p.unit = ['item', 'piece', 'meter', 'sheet'].indexOf(p.unit) >= 0 ? p.unit : 'item';
+  p.cat = p.cat || 'packages'; p.kind = ['course', 'system'].indexOf(p.kind) >= 0 ? p.kind : 'product'; p.unit = ['item', 'piece', 'meter', 'sheet'].indexOf(p.unit) >= 0 ? p.unit : 'item';
   p.pricing = p.pricing === 'per' && p.unit !== 'item' ? 'per' : 'total'; p.desc = p.desc || { en: '', ar: '' }; p.tag = p.tag || { en: '', ar: '' }; p.per = p.per || { en: '', ar: '' }; p.items = p.items || [];
   p.img = p.img || ''; p.amount = +p.amount || 0; p.min = +p.min || 1; p.step = +p.step || 1; p.disc = +p.disc || 0; p.discEnds = p.discEnds || ''; p.episodes = +p.episodes || 0; p.hours = +p.hours || 0;
+  p.license = p.license === 'rent' ? 'rent' : 'buy'; p.period = p.period === 'year' ? 'year' : 'month'; p.demoUrl = p.demoUrl || ''; p.demoUser = p.demoUser || ''; p.demoPass = p.demoPass || '';
   p.discType = p.discType === 'price' ? 'price' : 'percent'; p.discPrice = +p.discPrice || 0; p.sku = p.sku || ''; p.stock = (p.stock === undefined || p.stock === null || p.stock === '') ? null : +p.stock; p.sold = +p.sold || 0; p.added = p.added || ''; return p;
 }
 function norm_(c) {
@@ -120,7 +121,7 @@ function priceItems_(raw, C, now) {
     const pr = C.products.filter(x => x.id === id)[0]; if (!pr) return;
     const whole = pr.unit === 'item' || pr.pricing === 'total', min = whole ? 1 : (pr.min || 1); let q = merged[id]; q = whole ? Math.round(q) : Math.round(q * 100) / 100;
     if (q < min) q = min; if (q > (whole ? 99 : 100000)) q = whole ? 99 : 100000; if (!whole && pr.step) q = Math.max(min, Math.round(Math.round(q / pr.step) * pr.step * 100) / 100);
-    items.push({ id: pr.id, sku: pr.sku || '', name: pr.name.en || pr.name.ar, q: q, price: effPrice_(pr, now), unit: pr.unit, pricing: pr.pricing, amount: pr.amount || 0, kind: pr.kind, disc: discPct_(pr, now) });
+    items.push({ id: pr.id, sku: pr.sku || '', name: pr.name.en || pr.name.ar, q: q, price: effPrice_(pr, now), unit: pr.unit, pricing: pr.pricing, amount: pr.amount || 0, kind: pr.kind, license: pr.kind === 'system' ? pr.license : '', period: pr.kind === 'system' && pr.license === 'rent' ? pr.period : '', disc: discPct_(pr, now) });
   });
   return items;
 }
@@ -129,7 +130,7 @@ function invoiceHtml_(o, lang) {
   const un = u => ({ piece: T('piece', 'قطعة'), meter: T('m', 'متر'), sheet: T('sheet', 'ورقة') }[u] || '');
   const ql = i => (i.pricing === 'per' && i.unit !== 'item') ? f(i.q) + ' ' + un(i.unit) : (i.q > 1 ? '× ' + i.q : '1');
   const td = 'padding:8px;border-bottom:1px solid #eee;', al = ar ? 'right' : 'left', ot = ar ? 'left' : 'right', sh = ex.ship;
-  const rows = o.items.map(i => '<tr><td style="' + td + 'text-align:' + al + '">' + h_(i.name) + (i.sku ? '<br><small style="color:#888">' + h_(i.sku) + '</small>' : '') + '</td><td style="' + td + '">' + h_(ql(i)) + '</td><td style="' + td + '">' + f(i.price) + '</td><td style="' + td + 'text-align:' + ot + '">' + f(i.q * i.price) + '</td></tr>').join('');
+  const rows = o.items.map(i => '<tr><td style="' + td + 'text-align:' + al + '">' + h_(i.name) + (i.license ? '<br><small style="color:#888">' + (i.license === 'rent' ? T('Rent', 'إيجار') + (i.period === 'year' ? T(' (yearly)', ' (سنوي)') : T(' (monthly)', ' (شهري)')) : T('One-time purchase', 'شراء لمرة واحدة')) + '</small>' : '') + (i.sku ? '<br><small style="color:#888">' + h_(i.sku) + '</small>' : '') + '</td><td style="' + td + '">' + h_(ql(i)) + '</td><td style="' + td + '">' + f(i.price) + '</td><td style="' + td + 'text-align:' + ot + '">' + f(i.q * i.price) + '</td></tr>').join('');
   const sum = (l, v, b) => '<tr><td colspan="3" style="padding:6px 8px;text-align:' + ot + (b ? ';font-weight:bold' : '') + '">' + l + '</td><td style="padding:6px 8px;text-align:' + ot + (b ? ';font-weight:bold' : '') + '">' + v + '</td></tr>';
   const paidN = +(ex.paid || 0), payRows = (o.status === 'confirmed' || o.status === 'done' || paidN > 0) ? sum(T('Paid', 'المدفوع'), f(paidN) + ' ' + cur) + sum(T('Remaining', 'المتبقي'), f(o.total - paidN) + ' ' + cur, true) : '';
   let html = '<p style="margin:0 0 12px"><b>' + h_(ex.inv || o.id) + '</b> · ' + h_(String(o.at).slice(0, 10)) + '</p>';
@@ -238,15 +239,17 @@ const clean = {
   work: (b, C) => ({ cat: catId_(C.categories.work, b.cat), name: LS_(b.name, 100), desc: LS_(b.desc, 600), img: img_(b.img), video: video_(b.video) }),
   clients: b => ({ name: S_(b.name, 80), logo: img_(b.logo) }),
   products: (b, C) => {
-    const kind = b.kind === 'course' ? 'course' : 'product', unit = kind === 'course' ? 'item' : (['item', 'piece', 'meter', 'sheet'].indexOf(b.unit) >= 0 ? b.unit : 'item');
+    const kind = ['course', 'system'].indexOf(b.kind) >= 0 ? b.kind : 'product', unit = kind !== 'product' ? 'item' : (['item', 'piece', 'meter', 'sheet'].indexOf(b.unit) >= 0 ? b.unit : 'item');
     const pricing = kind === 'product' && unit !== 'item' && b.pricing === 'per' ? 'per' : 'total', end = S_(b.discEnds, 40);
     return { name: LS_(b.name, 100), tag: LS_(b.tag, 60), desc: LS_(b.desc, 1500), img: img_(b.img), cat: catId_(C.categories.shop, b.cat) || (C.categories.shop[0] || {}).id || 'packages', kind: kind, unit: unit, pricing: pricing,
       price: num_(b.price, 0, 1e7, 2), amount: pricing === 'total' && unit !== 'item' ? num_(b.amount, 0, 1e6, 2) : 0, min: num_(b.min, 0, 1e5, 2) || 1, step: num_(b.step, 0, 1e5, 2) || 1, per: LS_(b.per, 60),
       items: (Array.isArray(b.items) ? b.items : []).slice(0, 12).map(i => LS_(i, 100)), episodes: kind === 'course' ? num_(b.episodes, 0, 5000, 0) : 0, hours: kind === 'course' ? num_(b.hours, 0, 5000, 1) : 0,
       disc: num_(b.disc, 0, 95, 0), discType: b.discType === 'price' ? 'price' : 'percent', discPrice: num_(b.discPrice, 0, 1e7, 2), discEnds: /^\d{4}-\d{2}-\d{2}T/.test(end) && !isNaN(Date.parse(end)) ? new Date(end).toISOString() : '',
+      license: kind === 'system' && b.license === 'rent' ? 'rent' : 'buy', period: b.period === 'year' ? 'year' : 'month', demoUrl: kind === 'system' ? url_(b.demoUrl) : '', demoUser: kind === 'system' ? S_(b.demoUser, 80) : '', demoPass: kind === 'system' ? S_(b.demoPass, 80) : '',
       sku: S_(b.sku, 30).toUpperCase().replace(/[^A-Z0-9_\-]/g, ''), stock: (b.stock === '' || b.stock === null || b.stock === undefined) ? null : num_(b.stock, 0, 1e7, 2) };
   }
 };
+function url_(v) { v = S_(v, 400); return /^https?:\/\/[^\s<>"']+$/i.test(v) ? v : ''; }
 function named_(c) { return typeof c.name === 'string' ? !!c.name : !!(c.name.en || c.name.ar); }
 function R_(s, d, x) { const o = { s: s, d: d }; if (x) for (const k in x) o[k] = x[k]; return o; }
 function bytes_(b64) {
