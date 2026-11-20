@@ -1,0 +1,168 @@
+name: Build Android APK
+
+# Run it by hand: GitHub > Actions > "Build Android APK" > Run workflow.
+# Or push a tag such as v1.0.0 to also publish the APK in the repository's Releases.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "live = the app opens the website (site updates show up by themselves) | bundled = site files packed inside the APK"
+        type: choice
+        options: [live, bundled]
+        default: live
+      site_url:
+        description: "Published site address (used by live mode)"
+        type: string
+        default: "https://hook-agency-eg.github.io/Test2/"
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write # needed only to attach the APK to a Release
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  APK_MODE: ${{ inputs.mode || 'live' }}
+  SITE_URL: ${{ inputs.site_url || 'https://hook-agency-eg.github.io/Test2/' }}
+
+jobs:
+  build:
+    name: APK with Java ${{ matrix.java }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false # if the newest Java fails, the other builds still finish
+      matrix:
+        include:
+          - java: 27 # newest Java (Temurin 27)
+            gradle: 9.8.2
+          - java: 25 # newest LTS Java
+            gradle: 9.8.2
+          - java: 21 # the Java that Capacitor 8 officially supports (safety net)
+            gradle: 8.14.3
+    env:
+      # optional: only for a signed release APK (see apk/README.md)
+      KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - uses: android-actions/setup-android@v4
+        with:
+          packages: "platform-tools platforms;android-36 build-tools;36.0.0"
+
+      - name: Install Capacitor
+        working-directory: apk
+        run: npm install --no-audit --no-fund
+
+      - name: Prepare the app files (${{ env.APK_MODE }} mode)
+        working-directory: apk
+        run: node prepare.mjs
+
+      - name: Create the Android project
+        working-directory: apk
+        run: npx cap add android
+
+      - name: App icon and splash screen
+        working-directory: apk
+        run: npx @capacitor/assets generate --android --assetPath assets
+
+      - name: Version number and Gradle version
+        working-directory: apk/android
+        run: |
+          NAME="1.0.${{ github.run_number }}"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then NAME="${GITHUB_REF_NAME#v}"; fi
+          sed -i "s/versionCode 1/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"${NAME}\"/" app/build.gradle
+          grep -n "versionCode\|versionName" app/build.gradle
+          sed -i "s#gradle-[0-9.]*-\(all\|bin\)\.zip#gradle-${{ matrix.gradle }}-bin.zip#" gradle/wrapper/gradle-wrapper.properties
+          grep distributionUrl gradle/wrapper/gradle-wrapper.properties
+          echo "APP_VERSION=${NAME}" >> "$GITHUB_ENV"
+
+      - name: Copy the app files into the project
+        working-directory: apk
+        run: npx cap sync android
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Show the Java and Gradle that will build it
+        working-directory: apk/android
+        run: |
+          java -version
+          chmod +x gradlew
+          ./gradlew --version
+
+      - name: Build the APK (debug, installs on any phone)
+        working-directory: apk/android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Build a signed release APK (only if the keystore secrets exist)
+        if: env.KS_B64 != ''
+        working-directory: apk/android
+        run: |
+          ./gradlew assembleRelease --stacktrace
+          BT="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)"
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          "$BT/zipalign" -p -f 4 app/build/outputs/apk/release/app-release-unsigned.apk "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KS_PASS --key-pass env:KEY_PASS \
+            --out app/build/outputs/apk/release/app-release-signed.apk "$RUNNER_TEMP/aligned.apk"
+          "$BT/apksigner" verify app/build/outputs/apk/release/app-release-signed.apk
+
+      - name: Collect the APK files
+        run: |
+          mkdir -p dist
+          cp apk/android/app/build/outputs/apk/debug/app-debug.apk "dist/Hook-${APP_VERSION}-debug-java${{ matrix.java }}.apk"
+          if [ -f apk/android/app/build/outputs/apk/release/app-release-signed.apk ]; then
+            cp apk/android/app/build/outputs/apk/release/app-release-signed.apk "dist/Hook-${APP_VERSION}-release-java${{ matrix.java }}.apk"
+          fi
+          ls -la dist
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: hook-apk-java${{ matrix.java }}
+          path: dist/*.apk
+          if-no-files-found: error
+
+  release:
+    name: Publish the APK in Releases
+    needs: build
+    if: ${{ always() && startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          pattern: hook-apk-java*
+          merge-multiple: false
+
+      - name: Pick the build made with the newest Java that worked
+        run: |
+          mkdir -p release
+          for j in 27 25 21; do
+            if ls artifacts/hook-apk-java$j/*.apk >/dev/null 2>&1; then
+              cp artifacts/hook-apk-java$j/*.apk release/
+              echo "Using Java $j" >> "$GITHUB_STEP_SUMMARY"
+              break
+            fi
+          done
+          ls release
+          test -n "$(ls release)"
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: release/*.apk
+          generate_release_notes: true
