@@ -11,9 +11,9 @@ on:
         options: [live, bundled]
         default: live
       site_url:
-        description: "Published site address (used by live mode)"
+        description: "Published site address (live mode). Leave empty to use this repository's GitHub Pages address"
         type: string
-        default: "https://hook-agency-eg.github.io/Test2/"
+        default: ""
   push:
     tags: ["v*"]
 
@@ -26,23 +26,28 @@ concurrency:
 
 env:
   APK_MODE: ${{ inputs.mode || 'live' }}
-  SITE_URL: ${{ inputs.site_url || 'https://hook-agency-eg.github.io/Test2/' }}
+  # if you leave site_url empty, the address of this repository's GitHub Pages site is used
+  SITE_URL: ${{ inputs.site_url || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}
 
 jobs:
   build:
     name: APK with Java ${{ matrix.java }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    continue-on-error: ${{ matrix.experimental }} # a failing newest-Java build does not turn the whole run red
     strategy:
       fail-fast: false # if the newest Java fails, the other builds still finish
       matrix:
         include:
           - java: 27 # newest Java (Temurin 27)
             gradle: 9.8.2
+            experimental: true
           - java: 25 # newest LTS Java
             gradle: 9.8.2
+            experimental: true
           - java: 21 # the Java that Capacitor 8 officially supports (safety net)
             gradle: 8.14.3
+            experimental: false
     env:
       # optional: only for a signed release APK (see apk/README.md)
       KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
