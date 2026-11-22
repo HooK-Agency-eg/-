@@ -1,3 +1,4 @@
+if(/HookApp/.test(navigator.userAgent))document.documentElement.classList.add('inapp'); // set by the Android app
 /* Google Apps Script mode: when config.js has a URL, every /api/ call is sent there */
 if(window.HOOK_API){
   const real=window.fetch.bind(window);
