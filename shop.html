@@ -7,13 +7,18 @@
 <p data-ar="اختار اللي يناسبك، ضيفه للسلة وابعت الطلب على واتساب.">Pick what you need, add it to your cart and send the order on WhatsApp.</p></div></section>
 <section style="padding-top:20px"><div class="wrap">
 <div class="shoptools"><div class="tabs" id="stabs" role="group" aria-label="Sections"></div>
-<label class="sortbox"><span data-ar="رتّب حسب">Sort by</span><select id="sorter"></select></label></div>
+<label class="sortbox"><span data-ar="رتّب حسب">Sort by</span><select id="sorter"></select></label>
+<div class="viewsw" id="viewsw" role="group" aria-label="View"></div></div>
 <div id="deals"></div>
 <div class="grid shop" id="shop"></div>
+<div class="morewrap" id="morewrap"></div>
 </div></section>
 </main><script src="config.js"></script><script src="seed.js"></script><script src="app.js"></script>
 <script>
-let sc='all',so='featured',timer=null;
+let sc='all',so='featured',timer=null,SHB=1,vw='auto';try{vw=localStorage.getItem('shopview')||'auto'}catch(e){}
+const VIEWS={'1':{c:1,r:0},'3x3':{c:3,r:3},'4x5':{c:4,r:5},'4x4':{c:4,r:4}};
+function viewNow(){const k=vw==='auto'?(IN_APP?'3x3':''):vw,v=VIEWS[k]||{c:0,r:0};return{k:k,c:v.c,per:vw==='auto'||!v.r?0:v.c*v.r,compact:v.c>=3&&(IN_APP||innerWidth<700)}}
+const gridCls=v=>'grid shop'+(v.k?' v-'+v.k:'')+(v.compact?' compact':'');
 const isAdmin=()=>ME&&ME.role==='admin';
 const SORTS=[['featured','Featured','المميز'],['best','Best selling','الأكثر مبيعاً'],['low','Lowest price','الأقل سعراً'],['high','Highest price','الأغلى سعراً'],['new','Newest','المضاف حديثاً']];
 function leftTxt(ms){
@@ -26,7 +31,7 @@ function card(p,best){
   const label=L(p.tag)||catName('shop',p.cat);
   return '<article class="card prod'+(on?' deal':'')+(out?' soldout':'')+'" data-k="products" data-id="'+esc(p.id)+'">'
    +(on?'<span class="dbadge">-'+discPct(p)+'%</span>':'')
-   +(p.img?'<div class="pimg"'+bgv(p.img)+' data-zoom="'+esc(p.img)+'" data-name="'+esc(L(p.name))+'" role="button" tabindex="0" aria-label="'+t('View the image','شوف الصورة')+'"><img src="'+esc(p.img)+'" alt="'+esc(L(p.name))+'" loading="lazy">'+wmHTML(DB.watermark)+'<span class="zhint">⤢</span></div>':'')
+   +(p.img?'<div class="pimg"'+bgv(p.img)+' data-zoom="'+esc(p.img)+'" data-name="'+esc(L(p.name))+'" role="button" tabindex="0" aria-label="'+t('View the image','شوف الصورة')+'"><img src="'+esc(thumb(p.img,640))+'" alt="'+esc(L(p.name))+'" loading="'+eager(9)+'" decoding="async">'+wmHTML(DB.watermark)+'<span class="zhint">⤢</span></div>':'')
    +(course?'<span class="tag cbadge">'+t('Course','كورس')+'</span> ':'')+(best?'<span class="tag bbadge">'+t('Best seller','الأكثر مبيعاً')+'</span> ':'')+(label?'<span class="tag">'+esc(label)+'</span>':'')
    +'<h3>'+esc(L(p.name))+'</h3>'
    +(L(p.desc)?'<p class="pd">'+esc(L(p.desc))+'</p>':'')
@@ -50,8 +55,12 @@ function draw(){
   const base=sc==='all'?all:all.filter(p=>p.cat===sc);let deals=[],rest;
   if(so==='featured'){deals=sc==='all'?all.filter(p=>discOn(p)):[];rest=sc==='all'?all.filter(p=>!discOn(p)):[...base].sort((a,b)=>discOn(b)-discOn(a))}
   else rest=[...base].sort(K[so]);
-  $('deals').innerHTML=deals.length?'<div class="dealsband"><h2>'+t('Hot deals','عروض ساخنة')+'</h2><div class="grid shop">'+deals.map(p=>card(p,best.has(p.id))).join('')+'</div></div>':'';
-  $('shop').innerHTML=rest.map(p=>card(p,best.has(p.id))).join('')||(deals.length?'':'<p style="opacity:.8">'+t('Nothing here yet.','لسه مفيش حاجة هنا.')+'</p>');
+  const V=viewNow(),total=rest.length,vis=V.per?rest.slice(0,V.per*SHB):rest;
+  $('viewsw').innerHTML='<span>'+t('View','العرض')+'</span>'+[['auto',t('Auto','تلقائي')],['1','1'],['3x3','3×3'],['4x5','4×5'],['4x4','4×4']].map(x=>'<button type="button" data-v="'+x[0]+'" aria-pressed="'+(x[0]===vw)+'">'+x[1]+'</button>').join('');
+  $('deals').innerHTML=deals.length?'<div class="dealsband"><h2>'+t('Hot deals','عروض ساخنة')+'</h2><div class="'+gridCls(V)+'">'+deals.map(p=>card(p,best.has(p.id))).join('')+'</div></div>':'';
+  $('shop').className=gridCls(V);
+  $('shop').innerHTML=vis.map(p=>card(p,best.has(p.id))).join('')||(deals.length?'':'<p style="opacity:.8">'+t('Nothing here yet.','لسه مفيش حاجة هنا.')+'</p>');
+  $('morewrap').innerHTML=vis.length<total?'<button class="btn ghost" id="more">'+t('Show more','عرض المزيد')+' ('+(total-vis.length)+')</button>':'';
   clearInterval(timer);if(document.querySelector('.cd'))timer=setInterval(tick,1000);
 }
 function tick(){
@@ -59,9 +68,12 @@ function tick(){
   if(over)draw();
 }
 onContent(draw);document.addEventListener('auth',()=>{if(DB)draw()});
-$('sorter').onchange=e=>{so=e.target.value;draw()};
+$('sorter').onchange=e=>{so=e.target.value;SHB=1;draw()};
+addEventListener('resize',()=>{if(DB)draw()});
 document.addEventListener('click',e=>{
-  const s=e.target.closest('[data-s]');if(s){sc=s.dataset.s;draw();return}
+  const s=e.target.closest('[data-s]');if(s){sc=s.dataset.s;SHB=1;draw();return}
+  const vb=e.target.closest('[data-v]');if(vb){vw=vb.dataset.v;SHB=1;try{localStorage.setItem('shopview',vw)}catch(x){}draw();return}
+  if(e.target.closest('#more')){SHB++;draw();return}
   const q=e.target.closest('.qty button');
   if(q){const i=q.parentNode.querySelector('input'),st=+i.step||1,mn=+i.min||0,mx=i.max?+i.max:1e9;i.value=Math.min(mx,Math.max(mn,Math.round((+i.value+ +q.dataset.d*st)*100)/100));return}
   const b=e.target.closest('[data-add]');

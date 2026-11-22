@@ -1,4 +1,6 @@
-if(/HookApp/.test(navigator.userAgent))document.documentElement.classList.add('inapp'); // set by the Android app
+/* the Android app is detected from its user agent ("HookApp") or from the Capacitor bridge */
+const IN_APP=/HookApp/.test(navigator.userAgent)||!!(window.Capacitor&&typeof Capacitor.isNativePlatform==='function'&&Capacitor.isNativePlatform());
+if(IN_APP)document.documentElement.classList.add('inapp');
 /* Google Apps Script mode: when config.js has a URL, every /api/ call is sent there */
 if(window.HOOK_API){
   const real=window.fetch.bind(window);
@@ -31,7 +33,7 @@ const L=o=>o?(ar()?(o.ar||o.en):(o.en||o.ar))||'':'';
 const fmtPhone=d=>/^20\d{10}$/.test(d)?`+20 ${d.slice(2,5)} ${d.slice(5,8)} ${d.slice(8)}`:'+'+d;
 const pages=[['index.html','Home','الرئيسية'],['services.html','Services','خدماتنا'],['portfolio.html','Portfolio','أعمالنا'],['shop.html','Shop','المتجر'],['contact.html','Contact','كلمنا']];
 const here=(()=>{let h=location.pathname.split('/').pop()||'index';if(!/\.\w+$/.test(h))h+='.html';return h})();
-(()=>{try{if(location.protocol==='file:')return;const c=location.pathname.replace(/index\.html$/,'').replace(/\.html$/,'');if(!/HookApp/.test(navigator.userAgent)&&c!==location.pathname)history.replaceState(null,'',(c||'/')+location.search+location.hash)}catch(e){}})();
+(()=>{try{if(location.protocol==='file:')return;const c=location.pathname.replace(/index\.html$/,'').replace(/\.html$/,'');if(!IN_APP&&c!==location.pathname)history.replaceState(null,'',(c||'/')+location.search+location.hash)}catch(e){}})();
 const post=(u,b)=>fetch(u,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(b)});
 let DB=null,ME=null;const hooks=[];
 const onContent=fn=>{hooks.push(fn);if(DB)fn()};
@@ -140,7 +142,6 @@ function wmHTML(w){
   if(w.position==='tile')return '<div class="wm wm-t" style="'+st+'" aria-hidden="true"><div>'+Array(60).fill('<i>'+item+'</i>').join('')+'</div></div>';
   return '<div class="wm wm-'+(w.position==='corner'?'k':'c')+'" style="'+st+'" aria-hidden="true"><i>'+item+'</i></div>';
 }
-const IN_APP=/HookApp/.test(navigator.userAgent);
 /* inside the Android app: mail, phone and WhatsApp links are handed to the phone's own apps (Gmail, Phone, WhatsApp) */
 window.ext=(url,fallback)=>{
   if(!IN_APP){window.open(url,'_blank');return}
@@ -152,6 +153,9 @@ document.addEventListener('click',e=>{
   e.preventDefault();const u=a.getAttribute('href');
   ext(u,u.indexOf('mailto:')===0?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(u.slice(7).split('?')[0]):u);
 });
+const thumb=(u,w)=>/^https:\/\/lh3\.googleusercontent\.com\/d\/[\w-]+$/.test(String(u||''))?u+'=w'+w:u;
+const IMGN={n:0,t:0},eager=(k=9)=>{if(!IMGN.t){IMGN.t=1;setTimeout(()=>{IMGN.n=0;IMGN.t=0},0)}return IMGN.n++<k?'eager':'lazy'};
+['https://lh3.googleusercontent.com','https://script.google.com','https://script.googleusercontent.com'].forEach(h=>{const l=document.createElement('link');l.rel='preconnect';l.href=h;if(h.indexOf('lh3')>0)l.crossOrigin='';document.head.appendChild(l)});
 const bgv=u=>u?' style="--bg:url(\''+String(u).replace(/["'()\s\\]/g,c=>encodeURIComponent(c))+'\')"':'';
 const isTeam=()=>!!ME&&(ME.role==='admin'||ME.role==='staff');
 const can=p=>!!ME&&(ME.role==='admin'||(ME.role==='staff'&&(ME.perms||[]).includes(p)));
@@ -379,4 +383,7 @@ new MutationObserver(watch).observe(document.querySelector('main'),{childList:tr
 })().catch(e=>showErr(e.message));
 
 /* a missing image shows its name instead of a blank space, and the bad path is logged */
-document.addEventListener('error',e=>{const i=e.target;if(!i||i.tagName!=='IMG'||i.dataset.f||i.dataset.keep!==undefined)return;if(i.dataset.o&&i.getAttribute('src')!==i.dataset.o){i.src=i.dataset.o;return}i.dataset.f=1;console.warn('Image not found:',i.src);const d=document.createElement('div');d.className='imgfail';d.textContent=i.alt||'';i.replaceWith(d)},true);
+document.addEventListener('error',e=>{const i=e.target;if(!i||i.tagName!=='IMG'||i.dataset.f||i.dataset.keep!==undefined)return;if(!i.dataset.r&&/=w\d+$/.test(i.getAttribute('src')||'')){i.dataset.r=1;i.src=i.getAttribute('src').replace(/=w\d+$/,'');return}if(i.dataset.o&&i.getAttribute('src')!==i.dataset.o){i.src=i.dataset.o;return}i.dataset.f=1;console.warn('Image not found:',i.src);const d=document.createElement('div');d.className='imgfail';d.textContent=i.alt||'';i.replaceWith(d)},true);
+
+/* a small mark in the footer of the Android app, so you can see the new build is installed */
+if(IN_APP)setTimeout(()=>{const f=document.querySelector('footer');if(f&&!f.querySelector('.appflag')){const p=document.createElement('p');p.className='appflag';p.textContent='Hook app \u2713';f.appendChild(p)}},0);
