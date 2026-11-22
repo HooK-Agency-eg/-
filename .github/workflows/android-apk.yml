@@ -6,10 +6,10 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: "live = the app opens the website (site updates show up by themselves) | bundled = site files packed inside the APK"
+        description: "bundled = site files packed inside the app, like a normal app (recommended) | live = the app opens the published website"
         type: choice
-        options: [live, bundled]
-        default: live
+        options: [bundled, live]
+        default: bundled
       site_url:
         description: "Published site address (live mode). Leave empty to use this repository's GitHub Pages address"
         type: string
@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  APK_MODE: ${{ inputs.mode || 'live' }}
+  APK_MODE: ${{ inputs.mode || 'bundled' }}
   # if you leave site_url empty, the address of this repository's GitHub Pages site is used
   SITE_URL: ${{ inputs.site_url || format('https://{0}.github.io/{1}/', github.repository_owner, github.event.repository.name) }}
 
