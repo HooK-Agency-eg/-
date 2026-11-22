@@ -1,6 +1,7 @@
 // Prepares the Capacitor project: writes capacitor.config.json and fills www/
-//   APK_MODE=live     (default) the app opens the published website, so every site update shows up without a new APK
-//   APK_MODE=bundled  the site files are packed inside the APK
+//   APK_MODE=bundled  (default) the site files are packed inside the APK: pages open instantly and all links stay inside the app.
+//                     Products, projects, texts and photos you edit in the admin still update by themselves (they come from the server).
+//   APK_MODE=live     the app opens the published website; code changes show up without a new APK
 //   SITE_URL          the published website (GitHub Pages) address, used by "live"
 import { cpSync, rmSync, mkdirSync, writeFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -9,8 +10,9 @@ import { fileURLToPath } from 'node:url';
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const www = join(here, 'www');
-const mode = (process.env.APK_MODE || 'live').toLowerCase();
-let url = process.env.SITE_URL || 'https://hook-agency-eg.github.io/Test2/';
+const mode = (process.env.APK_MODE || 'bundled').toLowerCase();
+let url = process.env.SITE_URL || 'https://example.github.io/your-repo/'; // the workflow always passes SITE_URL
+url = new URL(url).href; // the host name is lower-cased here, Capacitor compares it case-sensitively
 if (!url.endsWith('/')) url += '/';
 if (!['live', 'bundled'].includes(mode)) throw new Error('APK_MODE must be "live" or "bundled"');
 
@@ -40,7 +42,11 @@ const config = {
   },
   server: { androidScheme: 'https' }
 };
-if (mode === 'live') config.server.url = url;
+if (mode === 'live') {
+  config.server.url = url;
+  // every page of the site (same host) opens inside the app, only other sites go to the browser
+  config.server.allowNavigation = [new URL(url).hostname];
+}
 writeFileSync(join(here, 'capacitor.config.json'), JSON.stringify(config, null, 2) + '\n');
 
 const count = d => readdirSync(d).reduce((n, f) => n + (statSync(join(d, f)).isDirectory() ? count(join(d, f)) : 1), 0);

@@ -140,6 +140,17 @@ function wmHTML(w){
   return '<div class="wm wm-'+(w.position==='corner'?'k':'c')+'" style="'+st+'" aria-hidden="true"><i>'+item+'</i></div>';
 }
 const IN_APP=/HookApp/.test(navigator.userAgent);
+/* inside the Android app: mail, phone and WhatsApp links are handed to the phone's own apps (Gmail, Phone, WhatsApp) */
+window.ext=(url,fallback)=>{
+  if(!IN_APP){window.open(url,'_blank');return}
+  const L=window.Capacitor&&Capacitor.Plugins&&Capacitor.Plugins.AppLauncher,go=()=>{location.href=fallback||url};
+  if(L&&L.openUrl){L.openUrl({url}).then(r=>{if(!r||r.completed===false)go()}).catch(go)}else go();
+};
+document.addEventListener('click',e=>{
+  if(!IN_APP)return;const a=e.target.closest&&e.target.closest('a[href^="mailto:"],a[href^="tel:"],a[href^="https://wa.me/"]');if(!a)return;
+  e.preventDefault();const u=a.getAttribute('href');
+  ext(u,u.indexOf('mailto:')===0?'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(u.slice(7).split('?')[0]):u);
+});
 const bgv=u=>u?' style="--bg:url(\''+String(u).replace(/["'()\s\\]/g,c=>encodeURIComponent(c))+'\')"':'';
 const isTeam=()=>!!ME&&(ME.role==='admin'||ME.role==='staff');
 const can=p=>!!ME&&(ME.role==='admin'||(ME.role==='staff'&&(ME.perms||[]).includes(p)));
@@ -219,7 +230,7 @@ $('order').onclick=async()=>{
   btn.disabled=false;btn.textContent=label;
   if(!r||!r.ok){if(w)w.close();eb.textContent=r?ordErr(j):t('Could not send the order. Check your connection and try again.','معرفناش نبعت الطلب. اتأكد من النت وجرّب تاني.');return}
   const msg=t('Hi Hook, I want to order:','أهلاً هوك، عايز أطلب:')+'\n'+lines.join('\n')+`\n${t('Subtotal','المجموع')}: ${fm(j.subtotal)} ${cur()}`+(j.discount?`\n${t('Coupon','كوبون')} ${CP.code}: -${fm(j.discount)} ${cur()}`:'')+(body.ship?`\n${t('Shipping','الشحن')} (${rg?L(rg.name):''}): +${fm(j.ship)} ${cur()}`:'')+`\n${t('Total','الإجمالي')}: ${fm(j.total)} ${cur()}\n${t('Order no.','رقم الطلب')}: ${j.inv}`+(body.ship?`\n${body.ship.name} - ${body.ship.phone}\n${body.ship.address}`:'');
-  const url=`https://wa.me/${DB.contact.whatsapp}?text=${encodeURIComponent(msg)}`;if(w)w.location.href=url;else if(IN_APP)location.href=url;else open(url,'_blank');
+  const url=`https://wa.me/${DB.contact.whatsapp}?text=${encodeURIComponent(msg)}`;if(w)w.location.href=url;else ext(url);
   const mail=(body.email&&body.email.length)?t('Your invoice will be emailed to ','الفاتورة هتتبعت على ')+esc(body.email)+t(' after confirmation.',' بعد التأكيد.'):'';
   cart=[];CP=null;try{localStorage.setItem('hookcart','[]')}catch(x){}
   CK.address='';saveCK();renderCart();renderCheckout();

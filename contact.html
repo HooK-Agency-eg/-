@@ -21,5 +21,5 @@
 <script>
 $('f').onsubmit=e=>{e.preventDefault();const d=new FormData(e.target),s=e.target.s.selectedOptions[0].textContent;
 const m=t('Hi Hook, I am '+d.get('n')+' from '+(d.get('b')||'my brand')+'.\nNeed: '+s+'\n'+d.get('m'),'أهلاً هوك، أنا '+d.get('n')+' من '+(d.get('b')||'البراند بتاعي')+'.\nمحتاج: '+s+'\n'+d.get('m'));
-open('https://wa.me/'+DB.contact.whatsapp+'?text='+encodeURIComponent(m),'_blank')};
+ext('https://wa.me/'+DB.contact.whatsapp+'?text='+encodeURIComponent(m))};
 </script></body></html>
