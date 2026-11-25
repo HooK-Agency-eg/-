@@ -1,20 +1,25 @@
 (function(){
 const ACTIONS={'index.html':[['+ Project','+ مشروع','work'],['+ Client','+ عميل','clients']],'portfolio.html':[['+ Project','+ مشروع','work'],['Sections','الأقسام','cats:work']],'shop.html':[['+ Product / course','+ منتج / كورس','products'],['Sections','الأقسام','cats:shop'],['Shipping','الشحن','ship']]};
 /* field: [path, 'EN|AR label', type, options] */
+const STLAB={package:['Package','باقة'],product:['Product','منتج'],sticker:['Sticker','ستيكر'],software:['Software system','نظام برمجي'],course:['Course','كورس']};
+function stLabel(ty){const x=STLAB[ty]||STLAB.product;return t(x[0],x[1])}
 const FIELDS={
  work:[['cat','Section|القسم','select',()=>[['','—']].concat(cats('work').map(c=>[c.id,L(c.name)]))],['name.en','Name (EN)|الاسم (EN)'],['name.ar','Name (AR)|الاسم (AR)'],['desc.en','Description (EN)|الوصف (EN)','area'],['desc.ar','Description (AR)|الوصف (AR)','area'],['img','Cover image|صورة الغلاف','image'],['video','Video: YouTube or Drive link, or upload an MP4 (max 10 MB)|فيديو: لينك يوتيوب أو درايف، أو ارفع MP4 (لحد 10 ميجا)','video']],
  clients:[['name','Client name|اسم العميل'],['logo','Logo|اللوجو','image']],
  products:[
-  ['cat','Section|القسم','select',()=>cats('shop').map(c=>[c.id,L(c.name)])],
-  ['kind','Type|النوع','select',()=>[['product',t('Product / package','منتج / باقة')],['course',t('Course','كورس')]]],
+  ['cat','Section|القسم','select',()=>cats('shop').map(c=>[c.id,L(c.name)+' · '+stLabel(c.type)])],
   ['name.en','Name (EN)|الاسم (EN)'],['name.ar','Name (AR)|الاسم (AR)'],
   ['desc.en','Description (EN)|الوصف (EN)','area'],['desc.ar','Description (AR)|الوصف (AR)','area'],
   ['img','Image (optional)|صورة (اختياري)','image'],
+  ['spec.en','Size / material (EN), e.g. 15.6 inch, matte|المقاس / الخامة (EN)'],['spec.ar','Size / material (AR)|المقاس / الخامة (AR)'],
+  ['license','How is it sold?|بيتباع إزاي؟','select',()=>[['buy',t('Buy (one-time payment)','شراء (دفعة واحدة)')],['rent',t('Rent (subscription)','إيجار (اشتراك)')]]],
+  ['period','Rent is paid|الإيجار بيتدفع','select',()=>[['month',t('Every month','كل شهر')],['year',t('Every year','كل سنة')]]],
   ['unit','Sold by|بيتباع بـ','select',()=>[['item',t('One item / package','حاجة واحدة / باقة')],['piece',t('Piece','القطعة')],['meter',t('Meter','المتر')],['sheet',t('Sheet','الورقة')]]],
   ['pricing','Price type|نوع السعر','select',()=>[['total',t('Fixed total price (a pack)','سعر إجمالي ثابت (عبوة)')],['per',t('Price per piece / meter / sheet','سعر للقطعة / المتر / الورقة')]]],
-  ['price','Price EGP (per unit, or the total price)|السعر بالجنيه (للوحدة، أو الإجمالي)','number'],
+  ['price','Price EGP|السعر بالجنيه','number'],
   ['amount','Units in one pack, e.g. 100 sheets|عدد الوحدات في العبوة، مثلاً 100 ورقة','number'],
   ['min','Minimum quantity|أقل كمية','number'],['step','Quantity step, e.g. 0.5 for half a meter|مقدار الزيادة، مثلاً 0.5 لنص متر','number'],
+  ['demoUrl','Demo link, so the customer can try it|رابط التجربة عشان العميل يجرّب'],['demoUser','Demo username|اليوزر التجريبي'],['demoPass','Demo password|الباسورد التجريبي'],
   ['sku','Product code (SKU), you choose it|كود المنتج (SKU) إنت اللي بتحدده'],['stock','Stock quantity (empty = not tracked)|الكمية في المخزن (فاضي = من غير تتبع)','number'],
   ['per.en','Billing text (EN), e.g. per month|نص الدفع (EN)، مثلاً شهرياً'],['per.ar','Billing text (AR)|نص الدفع (AR)'],
   ['tag.en','Small label (EN)|ليبل صغير (EN)'],['tag.ar','Small label (AR)|ليبل صغير (AR)'],
@@ -133,10 +138,29 @@ function editor(kind,id){
   });
   Object.keys(inputs).filter(k=>k.endsWith('.en')&&inputs[k.slice(0,-3)+'.ar']).forEach(k=>{const base=k.slice(0,-3),a=inputs[k],b=inputs[base+'.ar'];autoPair(a,b,base==='items',a.closest('label').querySelector('span'),b.closest('label').querySelector('span'))});
   if(kind==='products'){
+    /* the form only shows what the chosen section needs: package, product, sticker, software system or course */
+    const TF={
+      package:['name.en','name.ar','desc.en','desc.ar','img','price','per.en','per.ar','items.en','items.ar','tag.en','tag.ar','discType','disc','discPrice','discEnds'],
+      product:['name.en','name.ar','desc.en','desc.ar','img','unit','pricing','price','amount','min','step','tag.en','tag.ar','sku','stock','discType','disc','discPrice','discEnds'],
+      sticker:['name.en','name.ar','desc.en','desc.ar','img','spec.en','spec.ar','price','min','step','tag.en','tag.ar','sku','stock','discType','disc','discPrice','discEnds'],
+      software:['name.en','name.ar','desc.en','desc.ar','img','items.en','items.ar','license','period','price','demoUrl','demoUser','demoPass','tag.en','tag.ar','discType','disc','discPrice','discEnds'],
+      course:['name.en','name.ar','desc.en','desc.ar','img','price','episodes','hours','tag.en','tag.ar','discType','disc','discPrice','discEnds']};
+    const HINT={package:['A package: one fixed price, with its features list.','باقة: سعر ثابت وتحتها قايمة المميزات.'],product:['A product: sold by item, piece, meter or sheet, with stock.','منتج: بيتباع بالقطعة أو المتر أو الورقة، وفيه مخزون.'],sticker:['A sticker: priced per piece, with its size or material and stock.','ستيكر: السعر للقطعة، مع المقاس أو الخامة والمخزون.'],software:['A software system: buy or rent, with a demo link and a demo account so the customer can try it.','نظام برمجي: شراء أو إيجار، ومعاه رابط وحساب تجريبي عشان العميل يجرّب.'],course:['A course: episodes and hours.','كورس: عدد الحلقات والساعات.']};
     const show=(p,on)=>{const w=inputs[p]&&inputs[p].closest('label');if(w)w.style.display=on?'':'none'};
-    const refresh=()=>{const dt=inputs.discType.value;show('disc',dt==='percent');show('discPrice',dt==='price');const course=inputs.kind.value==='course',unit=inputs.unit.value,per=inputs.pricing.value==='per',multi=!course&&unit!=='item';
-      show('unit',!course);show('pricing',multi);show('amount',multi&&!per);show('min',multi&&per);show('step',multi&&per);show('per.en',!course&&unit==='item');show('per.ar',!course&&unit==='item');show('episodes',course);show('hours',course)};
-    ['kind','unit','pricing','discType'].forEach(k=>inputs[k].addEventListener('change',refresh));refresh();
+    const lab=(p,txt)=>{const sp=inputs[p]&&inputs[p].closest('label')&&inputs[p].closest('label').querySelector('span');if(sp)sp.textContent=txt};
+    const hint=document.createElement('p');hint.className='hint';inputs.cat.closest('label').after(hint);
+    const refresh=()=>{
+      const ty=catType(inputs.cat.value),on=new Set(TF[ty]||TF.product);
+      Object.keys(inputs).forEach(k=>{if(k!=='cat')show(k,on.has(k))});
+      hint.textContent=t(...(HINT[ty]||HINT.product));
+      const dt=inputs.discType.value;if(on.has('discType')){show('disc',dt==='percent');show('discPrice',dt==='price')}
+      if(ty==='product'){const unit=inputs.unit.value,per=inputs.pricing.value==='per',multi=unit!=='item';show('pricing',multi);show('amount',multi&&!per);show('min',multi&&per);show('step',multi&&per);show('per.en',!multi);show('per.ar',!multi);lab('price',multi&&per?t('Price per unit (EGP)','السعر للوحدة (جنيه)'):t('Total price (EGP)','السعر الإجمالي (جنيه)'))}
+      else if(ty==='sticker')lab('price',t('Price per sticker (EGP)','سعر الاستيكر الواحد (جنيه)'));
+      else if(ty==='software'){const rent=inputs.license.value==='rent';show('period',rent);lab('price',rent?(inputs.period.value==='year'?t('Rent price per year (EGP)','سعر الإيجار في السنة (جنيه)'):t('Rent price per month (EGP)','سعر الإيجار في الشهر (جنيه)')):t('Price (EGP, one-time)','السعر (جنيه، مرة واحدة)'))}
+      else if(ty==='course')lab('price',t('Course price (EGP)','سعر الكورس (جنيه)'));
+      else lab('price',t('Price (EGP)','السعر (جنيه)'));
+    };
+    ['cat','unit','pricing','discType','license','period'].forEach(k=>inputs[k].addEventListener('change',refresh));refresh();
   }
   const msg=document.createElement('p');msg.className='msg err';form.appendChild(msg);
   const row=document.createElement('div');row.className='row';
@@ -166,14 +190,14 @@ function editor(kind,id){
 function catEditor(kind){
   const list=JSON.parse(JSON.stringify(cats(kind))),form=document.createElement('form'),h=document.createElement('h3'),box=document.createElement('div');
   h.textContent=kind==='shop'?t('Shop sections','أقسام المتجر'):t('Portfolio sections','أقسام الشغل');form.appendChild(h);box.className='catlist';form.appendChild(box);
-  const note=document.createElement('p');note.style.cssText='opacity:.75;font-size:.9rem';note.textContent=kind==='shop'?t('Deleting a section moves its products to the first section.','لو مسحت قسم، منتجاته بتروح لأول قسم.'):t('Deleting a section keeps its projects, they just show under All.','لو مسحت قسم، مشاريعه بتفضل موجودة وبتظهر في "الكل".');form.appendChild(note);
+  const note=document.createElement('p');note.style.cssText='opacity:.75;font-size:.9rem';note.textContent=kind==='shop'?t('Choose the type of each section (package, product, sticker, software system, course): the product form then shows only what that type needs. Deleting a section moves its products to the first section.','اختار نوع كل قسم (باقة، منتج، ستيكر، نظام برمجي، كورس): نموذج إضافة المنتج بيظهر بس اللي النوع ده محتاجه. ولو مسحت قسم، منتجاته بتروح لأول قسم.'):t('Deleting a section keeps its projects, they just show under All.','لو مسحت قسم، مشاريعه بتفضل موجودة وبتظهر في "الكل".');form.appendChild(note);
   const draw=()=>{box.replaceChildren();list.forEach((c,i)=>{
     const r=document.createElement('div');r.className='catrow';
     const en=document.createElement('input'),arb=document.createElement('input'),x=btn('catx','×');en.placeholder='English';arb.placeholder='العربي';arb.dir='rtl';en.value=c.name.en||'';arb.value=c.name.ar||'';
     en.oninput=()=>c.name.en=en.value;arb.oninput=()=>c.name.ar=arb.value;x.setAttribute('aria-label','Delete');x.onclick=()=>{list.splice(i,1);draw()};
-    r.append(en,arb,x);box.appendChild(r);autoPair(en,arb,false)})};
+    if(kind==='shop'){const ty=document.createElement('select');ty.setAttribute('aria-label','Type');Object.keys(STLAB).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=stLabel(k);ty.appendChild(o)});ty.value=c.type||'product';c.type=ty.value;ty.onchange=()=>{c.type=ty.value};r.classList.add('typed');r.append(en,arb,ty,x)}else r.append(en,arb,x);box.appendChild(r);autoPair(en,arb,false)})};
   form.insertBefore(trToggle(),box);draw();
-  const add=btn('btn ghost',t('+ Add section','+ ضيف قسم'));add.onclick=()=>{list.push({id:'',name:{en:'',ar:''}});draw()};form.appendChild(add);
+  const add=btn('btn ghost',t('+ Add section','+ ضيف قسم'));add.onclick=()=>{list.push({id:'',name:{en:'',ar:''},type:'product'});draw()};form.appendChild(add);
   const msg=document.createElement('p');msg.className='msg err';form.appendChild(msg);
   const row=document.createElement('div');row.className='row';const ok=btn('btn',t('Save','حفظ'),'submit'),no=btn('btn ghost',t('Cancel','إلغاء'));no.onclick=()=>dlg.close();row.append(ok,no);form.appendChild(row);
   form.onsubmit=async e=>{e.preventDefault();ok.disabled=true;msg.className='msg';msg.textContent=t('Saving...','بيحفظ...');

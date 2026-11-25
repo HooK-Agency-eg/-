@@ -8,7 +8,7 @@
 <section style="padding-top:20px"><div class="wrap">
 <div class="shoptools"><div class="tabs" id="stabs" role="group" aria-label="Sections"></div>
 <label class="sortbox"><span data-ar="رتّب حسب">Sort by</span><select id="sorter"></select></label>
-<div class="viewsw" id="viewsw" role="group" aria-label="View"></div></div>
+<label class="sortbox"><span data-ar="العرض">View</span><select id="viewsel"></select></label></div>
 <div id="deals"></div>
 <div class="grid shop" id="shop"></div>
 <div class="morewrap" id="morewrap"></div>
@@ -26,14 +26,16 @@ function leftTxt(ms){
   return (d?d+' '+t(d==1?'day':'days','يوم')+' ':'')+h+':'+m+':'+x;
 }
 function card(p,best){
-  const on=discOn(p),per=isPer(p),course=p.kind==='course',e=effPrice(p),tracked=p.stock!==null&&p.stock!==undefined,out=tracked&&p.stock<=0,low=tracked&&p.stock>0&&p.stock<=5;
-  const sfx=per?' / '+unitTxt(p.unit,1):(p.unit!=='item'&&p.amount?' · '+t('pack of ','عبوة ')+fm(p.amount)+' '+unitTxt(p.unit,p.amount):(L(p.per)?' · '+esc(L(p.per)):''));
+  const on=discOn(p),per=isPer(p),course=p.kind==='course',sys=p.kind==='system',e=effPrice(p),tracked=p.stock!==null&&p.stock!==undefined,out=tracked&&p.stock<=0,low=tracked&&p.stock>0&&p.stock<=5;
+  const sfx=sys?(p.license==='rent'?' / '+(p.period==='year'?t('year','سنة'):t('month','شهر')):' · '+t('one-time','مرة واحدة')):per?' / '+unitTxt(p.unit,1):(p.unit!=='item'&&p.amount?' · '+t('pack of ','عبوة ')+fm(p.amount)+' '+unitTxt(p.unit,p.amount):(L(p.per)?' · '+esc(L(p.per)):''));
   const label=L(p.tag)||catName('shop',p.cat);
   return '<article class="card prod'+(on?' deal':'')+(out?' soldout':'')+'" data-k="products" data-id="'+esc(p.id)+'">'
    +(on?'<span class="dbadge">-'+discPct(p)+'%</span>':'')
    +(p.img?'<div class="pimg"'+bgv(p.img)+' data-zoom="'+esc(p.img)+'" data-name="'+esc(L(p.name))+'" role="button" tabindex="0" aria-label="'+t('View the image','شوف الصورة')+'"><img src="'+esc(thumb(p.img,640))+'" alt="'+esc(L(p.name))+'" loading="'+eager(9)+'" decoding="async">'+wmHTML(DB.watermark)+'<span class="zhint">⤢</span></div>':'')
    +(course?'<span class="tag cbadge">'+t('Course','كورس')+'</span> ':'')+(best?'<span class="tag bbadge">'+t('Best seller','الأكثر مبيعاً')+'</span> ':'')+(label?'<span class="tag">'+esc(label)+'</span>':'')
    +'<h3>'+esc(L(p.name))+'</h3>'
+   +(L(p.spec)?'<p class="spec">'+esc(L(p.spec))+'</p>':'')
+   +(sys?'<p class="lic">'+(p.license==='rent'?'🔄 ':'✔ ')+esc(licTxt(p))+'</p>':'')
    +(L(p.desc)?'<p class="pd">'+esc(L(p.desc))+'</p>':'')
    +(course&&(p.episodes||p.hours)?'<p class="cmeta">▶ '+(p.episodes?p.episodes+' '+t(p.episodes==1?'episode':'episodes','حلقة'):'')+(p.episodes&&p.hours?' · ':'')+(p.hours?fm(p.hours)+' '+t('hours','ساعة'):'')+'</p>':'')
    +(p.items.length?'<ul class="tick">'+p.items.map(x=>'<li>'+esc(L(x))+'</li>').join('')+'</ul>':'')
@@ -42,7 +44,8 @@ function card(p,best){
    +(out?'<p class="stk out">'+t('Out of stock','خلص من المخزون')+'</p>':(low?'<p class="stk">'+t('Only ','فاضل ')+fm(p.stock)+' '+t('left','بس')+'</p>':''))
    +(isAdmin()&&(p.sku||tracked)?'<p class="adm">'+(p.sku?t('Code','الكود')+': <b dir="ltr">'+esc(p.sku)+'</b> · ':'')+t('Stock','المخزون')+': '+(tracked?fm(p.stock):'∞')+' · '+t('Sold','اتباع')+': '+fm(p.sold)+'</p>':'')
    +(per&&!out?'<div class="qty"><button type="button" data-d="-1" aria-label="-">−</button><input type="number" inputmode="decimal" value="'+minOf(p)+'" min="'+minOf(p)+'" step="'+stepOf(p)+'"'+(tracked?' max="'+p.stock+'"':'')+' aria-label="'+t('Quantity','الكمية')+'"><span>'+unitTxt(p.unit,2)+'</span><button type="button" data-d="1" aria-label="+">+</button></div>':'')
-   +'<button class="btn" data-add="'+esc(p.id)+'"'+(out?' disabled':'')+'>'+(out?t('Out of stock','خلص'):course?t('Enroll','اشترك'):t('Add to cart','ضيف للسلة'))+'</button></article>';
+   +(sys&&p.demoUrl?'<button class="btn ghost demo" type="button" data-demo="'+esc(p.id)+'">▶ '+t('Try the demo','جرّب النظام')+'</button>':'')
+   +'<button class="btn" data-add="'+esc(p.id)+'"'+(out?' disabled':'')+'>'+(out?t('Out of stock','خلص'):course?t('Enroll','اشترك'):sys?(p.license==='rent'?t('Rent it','استأجر'):t('Buy it','اشتري')):t('Add to cart','ضيف للسلة'))+'</button></article>';
 }
 function draw(){
   const all=DB.products.map(pdef),idx=new Map(all.map((p,i)=>[p.id,i])),shown=new Set(all.map(p=>p.cat));
@@ -56,12 +59,23 @@ function draw(){
   if(so==='featured'){deals=sc==='all'?all.filter(p=>discOn(p)):[];rest=sc==='all'?all.filter(p=>!discOn(p)):[...base].sort((a,b)=>discOn(b)-discOn(a))}
   else rest=[...base].sort(K[so]);
   const V=viewNow(),total=rest.length,vis=V.per?rest.slice(0,V.per*SHB):rest;
-  $('viewsw').innerHTML='<span>'+t('View','العرض')+'</span>'+[['auto',t('Auto','تلقائي')],['1','1'],['3x3','3×3'],['4x5','4×5'],['4x4','4×4']].map(x=>'<button type="button" data-v="'+x[0]+'" aria-pressed="'+(x[0]===vw)+'">'+x[1]+'</button>').join('');
+  $('viewsel').innerHTML=[['auto',t('Auto','تلقائي')],['1',t('1 per row','1 في الصف')],['3x3','3 × 3'],['4x5','4 × 5'],['4x4','4 × 4']].map(x=>'<option value="'+x[0]+'"'+(x[0]===vw?' selected':'')+'>'+x[1]+'</option>').join('');
   $('deals').innerHTML=deals.length?'<div class="dealsband"><h2>'+t('Hot deals','عروض ساخنة')+'</h2><div class="'+gridCls(V)+'">'+deals.map(p=>card(p,best.has(p.id))).join('')+'</div></div>':'';
   $('shop').className=gridCls(V);
   $('shop').innerHTML=vis.map(p=>card(p,best.has(p.id))).join('')||(deals.length?'':'<p style="opacity:.8">'+t('Nothing here yet.','لسه مفيش حاجة هنا.')+'</p>');
   $('morewrap').innerHTML=vis.length<total?'<button class="btn ghost" id="more">'+t('Show more','عرض المزيد')+' ('+(total-vis.length)+')</button>':'';
   clearInterval(timer);if(document.querySelector('.cd'))timer=setInterval(tick,1000);
+}
+/* demo window: link + username + password so the customer can try the system */
+function demoOpen(p){
+  let d=$('demod');if(!d){d=document.createElement('dialog');d.id='demod';document.body.appendChild(d);d.addEventListener('click',e=>{if(e.target===d)d.close()})}
+  const row=(lab,val)=>val?'<div class="drow"><span>'+lab+'</span><b dir="ltr">'+esc(val)+'</b><button type="button" class="btn ghost sm" data-copy="'+esc(val)+'">'+t('Copy','نسخ')+'</button></div>':'';
+  d.innerHTML='<h3>'+esc(L(p.name))+'</h3><p style="opacity:.85">'+t('Try the system with this demo account. Please do not change the demo password.','جرّب النظام بالحساب التجريبي ده. لو سمحت ما تغيّرش الباسورد.')+'</p>'
+   +'<div class="drow"><span>'+t('Link','الرابط')+'</span><b dir="ltr" style="word-break:break-all">'+esc(p.demoUrl)+'</b></div>'+row(t('Username','اليوزر'),p.demoUser)+row(t('Password','الباسورد'),p.demoPass)
+   +'<div class="row" style="margin-top:14px"><button class="btn" type="button" id="demogo">'+t('Open the demo','افتح التجربة')+'</button><button class="btn ghost" type="button" id="demox">'+t('Close','إغلاق')+'</button></div>';
+  d.querySelector('#demox').onclick=()=>d.close();d.querySelector('#demogo').onclick=()=>{ext(p.demoUrl)};
+  d.querySelectorAll('[data-copy]').forEach(b=>b.onclick=async()=>{try{await navigator.clipboard.writeText(b.dataset.copy)}catch(e){const i=document.createElement('input');i.value=b.dataset.copy;document.body.appendChild(i);i.select();document.execCommand('copy');i.remove()}b.textContent=t('Copied','اتنسخ');setTimeout(()=>b.textContent=t('Copy','نسخ'),1500)});
+  d.showModal();
 }
 function tick(){
   let over=false;document.querySelectorAll('.cd').forEach(c=>{const ms=Date.parse(c.dataset.end)-Date.now();if(ms<=0)over=true;else c.querySelector('b').textContent=leftTxt(ms)});
@@ -69,10 +83,11 @@ function tick(){
 }
 onContent(draw);document.addEventListener('auth',()=>{if(DB)draw()});
 $('sorter').onchange=e=>{so=e.target.value;SHB=1;draw()};
+$('viewsel').onchange=e=>{vw=e.target.value;SHB=1;try{localStorage.setItem('shopview',vw)}catch(x){}draw()};
 addEventListener('resize',()=>{if(DB)draw()});
 document.addEventListener('click',e=>{
   const s=e.target.closest('[data-s]');if(s){sc=s.dataset.s;SHB=1;draw();return}
-  const vb=e.target.closest('[data-v]');if(vb){vw=vb.dataset.v;SHB=1;try{localStorage.setItem('shopview',vw)}catch(x){}draw();return}
+  const dm=e.target.closest('[data-demo]');if(dm){const p=prod(dm.dataset.demo);if(p)demoOpen(p);return}
   if(e.target.closest('#more')){SHB++;draw();return}
   const q=e.target.closest('.qty button');
   if(q){const i=q.parentNode.querySelector('input'),st=+i.step||1,mn=+i.min||0,mx=i.max?+i.max:1e9;i.value=Math.min(mx,Math.max(mn,Math.round((+i.value+ +q.dataset.d*st)*100)/100));return}

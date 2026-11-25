@@ -106,10 +106,11 @@ addEventListener('scroll',paint,{passive:true});addEventListener('resize',paint)
 new ResizeObserver(paint).observe(document.body);
 
 /* ---------- sections, units, discounts ---------- */
-const DEFCATS={work:[{id:'Design',name:{en:'Design',ar:'تصميم'}},{id:'Content',name:{en:'Content',ar:'محتوى'}},{id:'Media Buying',name:{en:'Media Buying',ar:'شراء إعلانات'}}],shop:[{id:'packages',name:{en:'Marketing packages',ar:'باقات التسويق'}}]};
+const DEFCATS={work:[{id:'Design',name:{en:'Design',ar:'تصميم'}},{id:'Content',name:{en:'Content',ar:'محتوى'}},{id:'Media Buying',name:{en:'Media Buying',ar:'شراء إعلانات'}}],shop:[{id:'packages',name:{en:'Marketing packages',ar:'باقات التسويق'},type:'package'}]};
 const cats=k=>(DB&&DB.categories&&DB.categories[k])||DEFCATS[k];
+const catType=id=>(cats('shop').find(x=>x.id===id)||{}).type||'product';
 const catName=(k,id)=>{const c=cats(k).find(x=>x.id===id);return c?L(c.name):''};
-const pdef=p=>Object.assign({license:'buy',period:'month',demoUrl:'',demoUser:'',demoPass:'',kind:'product',unit:'item',pricing:'total',min:1,step:1,amount:0,disc:0,discType:'percent',discPrice:0,discEnds:'',cat:'packages',episodes:0,hours:0,desc:{en:'',ar:''},tag:{en:'',ar:''},per:{en:'',ar:''},items:[],img:'',sku:'',stock:null,sold:0,added:''},p);
+const pdef=p=>Object.assign({spec:{en:'',ar:''},license:'buy',period:'month',demoUrl:'',demoUser:'',demoPass:'',kind:'product',unit:'item',pricing:'total',min:1,step:1,amount:0,disc:0,discType:'percent',discPrice:0,discEnds:'',cat:'packages',episodes:0,hours:0,desc:{en:'',ar:''},tag:{en:'',ar:''},per:{en:'',ar:''},items:[],img:'',sku:'',stock:null,sold:0,added:''},p);
 const prod=id=>{const p=DB&&DB.products.find(x=>x.id===id);return p&&pdef(p)};
 const cur=()=>t('EGP','ج.م');
 const discOn=(p,now)=>{if(p.discEnds&&!(Date.parse(p.discEnds)>(now||Date.now())))return false;return p.discType==='price'?(+p.discPrice>0&&+p.discPrice<+p.price):+p.disc>0};
@@ -119,7 +120,7 @@ const fm=n=>String(Math.round(n*100)/100);
 const UN={piece:['piece','pieces','قطعة'],meter:['m','m','متر'],sheet:['sheet','sheets','ورقة']};
 const unitTxt=(u,q)=>{const x=UN[u];return x?(ar()?x[2]:(q==1?x[0]:x[1])):''};
 const isPer=p=>p.pricing==='per'&&p.unit!=='item';
-const lineTxt=(i)=>(i.pricing==='per'&&i.unit&&i.unit!=='item')?fm(i.q)+' '+unitTxt(i.unit,i.q):(i.q>1?'× '+i.q:'');
+const lineTxt=(i)=>i.license?licOf(i)+(i.q>1?' × '+i.q:''):((i.pricing==='per'&&i.unit&&i.unit!=='item')?fm(i.q)+' '+unitTxt(i.unit,i.q):(i.q>1?'× '+i.q:''));
 const lineTotal=(p,q)=>Math.round(effPrice(p)*q*100)/100;
 const licOf=i=>!i||!i.license?'':(i.license==='rent'?t('Rent','إيجار')+' ('+(i.period==='year'?t('yearly','سنوي'):t('monthly','شهري'))+')':t('One-time purchase','شراء لمرة واحدة'));
 const licTxt=p=>p&&p.kind==='system'?licOf({license:p.license,period:p.license==='rent'?p.period:''}):'';
@@ -169,7 +170,7 @@ function saveCart(){try{localStorage.setItem('hookcart',JSON.stringify(cart))}ca
 function renderCart(){
   $('cnt').textContent=cart.length;if(!DB)return;
   $('items').innerHTML=cart.length?cart.map((i,n)=>{const p=prod(i.id),q=isPer(p)?fm(i.q)+' '+unitTxt(p.unit,i.q):fm(i.q);
-    return `<li class="cl"><div><b>${esc(L(p.name))}</b><br><small>${esc(priceTxt(p))}${discOn(p)?' · -'+discPct(p)+'%':''}</small><div class="qs"><button type="button" data-q="${n}|-1" aria-label="-">−</button><span>${esc(q)}</span><button type="button" data-q="${n}|1" aria-label="+">+</button></div></div><span>${fm(lineTotal(p,i.q))} ${cur()} <button class="x" data-rm="${n}" aria-label="Remove">×</button></span></li>`}).join(''):`<li>${t('Your cart is empty. Pick something from the shop.','السلة فاضية. اختار حاجة من المتجر.')}</li>`;
+    return `<li class="cl"><div><b>${esc(L(p.name))}</b><br><small>${esc(priceTxt(p))}${p.kind==='system'?' · '+esc(licTxt(p)):''}${discOn(p)?' · -'+discPct(p)+'%':''}</small><div class="qs"><button type="button" data-q="${n}|-1" aria-label="-">−</button><span>${esc(q)}</span><button type="button" data-q="${n}|1" aria-label="+">+</button></div></div><span>${fm(lineTotal(p,i.q))} ${cur()} <button class="x" data-rm="${n}" aria-label="Remove">×</button></span></li>`}).join(''):`<li>${t('Your cart is empty. Pick something from the shop.','السلة فاضية. اختار حاجة من المتجر.')}</li>`;
   const c=calc(),row=(l,v)=>`<div class="sr"><span>${l}</span><b>${v}</b></div>`;
   $('sum').innerHTML=cart.length&&(c.disc||c.fee)?row(t('Subtotal','المجموع'),fm(c.sub)+' '+cur())+(c.disc?row(t('Coupon ','كوبون ')+esc(CP.code),'-'+fm(c.disc)+' '+cur()):'')+(CK.ship&&c.fee?row(t('Shipping','الشحن'),'+'+fm(c.fee)+' '+cur()):''):'';
   $('tot').textContent=cart.length?`${t('Total','الإجمالي')}: ${fm(c.total)} ${cur()}`:'';
