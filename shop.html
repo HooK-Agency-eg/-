@@ -60,7 +60,7 @@ function draw(){
   else rest=[...base].sort(K[so]);
   const V=viewNow(),total=rest.length,vis=V.per?rest.slice(0,V.per*SHB):rest;
   $('viewsel').innerHTML=[['auto',t('Auto','تلقائي')],['1',t('1 per row','1 في الصف')],['3x3','3 × 3'],['4x5','4 × 5'],['4x4','4 × 4']].map(x=>'<option value="'+x[0]+'"'+(x[0]===vw?' selected':'')+'>'+x[1]+'</option>').join('');
-  $('deals').innerHTML=deals.length?'<div class="dealsband"><h2>'+t('Hot deals','عروض ساخنة')+'</h2><div class="'+gridCls(V)+'">'+deals.map(p=>card(p,best.has(p.id))).join('')+'</div></div>':'';
+  $('deals').innerHTML=deals.length?'<div class="dealsband"><h2>'+t('Knockout Deals','عروض من الاخر')+'</h2><div class="'+gridCls(V)+'">'+deals.map(p=>card(p,best.has(p.id))).join('')+'</div></div>':'';
   $('shop').className=gridCls(V);
   $('shop').innerHTML=vis.map(p=>card(p,best.has(p.id))).join('')||(deals.length?'':'<p style="opacity:.8">'+t('Nothing here yet.','لسه مفيش حاجة هنا.')+'</p>');
   $('morewrap').innerHTML=vis.length<total?'<button class="btn ghost" id="more">'+t('Show more','عرض المزيد')+' ('+(total-vis.length)+')</button>':'';
